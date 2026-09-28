@@ -42,7 +42,7 @@ CASES: dict[str, str] = {
     "aaa-div": "<a>1<div>2<div>3</a>4</div>5</div>",
     "aaa-reparented": "<p><em>foo</p>\n<p>bar<a></a></em></p>",
     "aaa-many-formatting": "<b><i><u><s><em><strong>x<p>y</b>z",
-    "noahs-ark": "<p><b><b><b><b>x</b></b></b></b>" "<p><b class=a><b class=a><b class=a><b class=a>y",
+    "noahs-ark": "<p><b><b><b><b>x</b></b></b></b><p><b class=a><b class=a><b class=a><b class=a>y",
     "noahs-ark-attrs": "<b a=1><b a=1><b a=2><b a=1><b a=1><p>x",
     "formatting-across-table": "<b><table><td>x</b>y</table>z",
     "formatting-reconstruct": "<i>a<p>b<p>c</i>d",
@@ -134,7 +134,7 @@ CASES: dict[str, str] = {
     "control-chars": "a\x01b\x7fc\x80d\x9fe﷐f￿",
     "cr-lf": "a\r\nb\rc\n\r\nd<p>\r\n</p>",
     "bom-in-str": "﻿<p>x",
-    "astral": "<p>\U0001F600 \U00010000 \U0010FFFD</p>",
+    "astral": "<p>\U0001f600 \U00010000 \U0010fffd</p>",
     # --- attributes --------------------------------------------------------
     "attrs-duplicate": '<b b="20" a="1" b="10" a="2" a="3" a="4">x</b>',
     "attrs-case": "<p CLASS=a ID=b Data-X=c>",
@@ -189,7 +189,7 @@ CASES: dict[str, str] = {
     "<button>b</button><textarea>t</textarea><select><option>o</select></fieldset></form>",
     # --- bs4 test documents ------------------------------------------------
     "bs4-extraction": "\n<html><head></head>\n<style>\n</style><script></script><body><p>hello</p></body></html>\n",
-    "bs4-empty-comment": "\n<html>\n<body>\n<form>\n<!----><input type=\"text\">\n</form>\n</body>\n</html>\n",
+    "bs4-empty-comment": '\n<html>\n<body>\n<form>\n<!----><input type="text">\n</form>\n</body>\n</html>\n',
     "bs4-reparent-children": "<div><a>aftermath<p><noscript>target</noscript>aftermath</a></p></div>",
     "bs4-cloned-multivalue": '<a class="my_class"><p></a>',
     # --- found by fuzzing (tests/fuzz.py), minimized ------------------------

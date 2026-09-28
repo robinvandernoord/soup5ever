@@ -7,8 +7,13 @@ from dataclasses import dataclass
 
 ROOT = pathlib.Path(__file__).parent / "data" / "html5lib-tests" / "tree-construction"
 HEADINGS = {
-    "#data", "#errors", "#new-errors", "#document-fragment",
-    "#script-off", "#script-on", "#document",
+    "#data",
+    "#errors",
+    "#new-errors",
+    "#document-fragment",
+    "#script-off",
+    "#script-on",
+    "#document",
 }
 
 
@@ -42,10 +47,18 @@ def load(path: pathlib.Path) -> list[Case]:
                 id=f"{path.stem}:{len(cases)}",
                 data="\n".join(sections["#data"]),
                 document="\n".join(doc),
-                fragment=("\n".join(sections["#document-fragment"]).strip()
-                          if "#document-fragment" in sections else None),
-                scripting=(True if "#script-on" in sections
-                           else False if "#script-off" in sections else None),
+                fragment=(
+                    "\n".join(sections["#document-fragment"]).strip()
+                    if "#document-fragment" in sections
+                    else None
+                ),
+                scripting=(
+                    True
+                    if "#script-on" in sections
+                    else False
+                    if "#script-off" in sections
+                    else None
+                ),
             )
         )
 

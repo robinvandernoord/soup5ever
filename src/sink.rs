@@ -344,7 +344,12 @@ impl TreeSink for Sink {
         }
     }
 
-    fn append_based_on_parent_node(&self, element: &u32, prev_element: &u32, child: NodeOrText<u32>) {
+    fn append_based_on_parent_node(
+        &self,
+        element: &u32,
+        prev_element: &u32,
+        child: NodeOrText<u32>,
+    ) {
         let has_parent = self.nodes.borrow()[*element as usize].parent != NONE;
         if has_parent {
             self.append_before_sibling(element, child);
@@ -353,7 +358,12 @@ impl TreeSink for Sink {
         }
     }
 
-    fn append_doctype_to_document(&self, name: StrTendril, public_id: StrTendril, system_id: StrTendril) {
+    fn append_doctype_to_document(
+        &self,
+        name: StrTendril,
+        public_id: StrTendril,
+        system_id: StrTendril,
+    ) {
         let (name, public_id, system_id) = match self.pending_doctype.borrow_mut().take() {
             Some(original) => original,
             None => (Some(name), Some(public_id), Some(system_id)),

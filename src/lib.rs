@@ -15,8 +15,6 @@ use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyString};
 
-use crate::sink::Arena;
-
 /// Carries the arena out of `Python::detach`.
 ///
 /// `detach` requires its return value to be `Send` because it is a generic
@@ -29,29 +27,27 @@ unsafe impl<T> Send for SameThread<T> {}
 
 /// Decode (if needed) and parse `markup`, then populate `soup`.
 ///
-/// Returns the name of the encoding used for byte input, `None` for str.
+/// `classes` maps the roles in `convert::Classes` to the Python classes to
+/// instantiate. `encodings` are candidate labels for the user's
+/// `from_encoding` (byte input only). Returns the name of the encoding used
+/// for byte input, `None` for str.
 #[pyfunction]
-#[pyo3(signature = (soup, builder, markup, classes, attribute_dict_is_plain, override_encodings, store_line_numbers))]
+#[pyo3(signature = (soup, builder, markup, classes, *, encodings, store_line_numbers))]
 fn build_tree<'py>(
     py: Python<'py>,
     soup: &Bound<'py, PyAny>,
     builder: &Bound<'py, PyAny>,
     markup: &Bound<'py, PyAny>,
-    classes: (
-        Bound<'py, PyAny>,
-        Bound<'py, PyAny>,
-        Bound<'py, PyAny>,
-        Bound<'py, PyAny>,
-        Bound<'py, PyAny>,
-        Bound<'py, PyAny>,
-    ),
-    attribute_dict_is_plain: bool,
-    override_encodings: Vec<String>,
+    classes: convert::Classes<'py>,
+    encodings: Vec<String>,
     store_line_numbers: bool,
 ) -> PyResult<Option<String>> {
-    let (arena, encoding): (Arena, Option<String>) = if let Ok(s) = markup.cast::<PyString>() {
+    let (arena, encoding) = if let Ok(s) = markup.cast::<PyString>() {
         let arena = match s.to_str() {
-            Ok(text) => py.detach(|| SameThread(driver::parse_str(text, store_line_numbers))).0,
+            Ok(text) => {
+                py.detach(|| SameThread(driver::parse_str(text, store_line_numbers)))
+                    .0
+            }
             Err(_) => {
                 // The str contains lone surrogates, which Rust strings can't
                 // hold. Replace each with U+FFFD.
@@ -62,20 +58,15 @@ fn build_tree<'py>(
                     .map(|c| u16::from_le_bytes([c[0], c[1]]))
                     .collect();
                 let text = String::from_utf16_lossy(&units);
-                py.detach(|| SameThread(driver::parse_str(&text, store_line_numbers))).0
+                py.detach(|| SameThread(driver::parse_str(&text, store_line_numbers)))
+                    .0
             }
         };
         (arena, None)
     } else if let Ok(b) = markup.cast::<PyBytes>() {
         let bytes = b.as_bytes();
         let (arena, enc) = py
-            .detach(|| {
-                SameThread(driver::parse_bytes(
-                    bytes,
-                    &override_encodings,
-                    store_line_numbers,
-                ))
-            })
+            .detach(|| SameThread(driver::parse_bytes(bytes, &encodings, store_line_numbers)))
             .0;
         (arena, Some(enc.name().to_ascii_lowercase()))
     } else {
@@ -84,30 +75,29 @@ fn build_tree<'py>(
             markup.get_type().name()?
         )));
     };
-
-    let classes = convert::Classes {
-        tag: classes.0,
-        string: classes.1,
-        comment: classes.2,
-        doctype: classes.3,
-        namespaced_attribute: classes.4,
-        attribute_dict: classes.5,
-    };
-    convert::build(
-        py,
-        &arena,
-        soup,
-        builder,
-        &classes,
-        attribute_dict_is_plain,
-        store_line_numbers,
-    )?;
+    convert::build(py, &arena, soup, builder, &classes, store_line_numbers)?;
     Ok(encoding)
+}
+
+/// Parse without building BeautifulSoup objects; returns the node count.
+///
+/// Private: used by the benchmarks to separate parsing cost from the cost
+/// of creating BeautifulSoup objects.
+#[pyfunction]
+fn _parse_only(py: Python<'_>, markup: &Bound<'_, PyAny>) -> PyResult<usize> {
+    if let Ok(s) = markup.cast::<PyString>() {
+        let text = s.to_str()?;
+        Ok(py.detach(|| driver::parse_str(text, true).nodes.len()))
+    } else {
+        let bytes = markup.cast::<PyBytes>()?.as_bytes();
+        Ok(py.detach(|| driver::parse_bytes(bytes, &[], true).0.nodes.len()))
+    }
 }
 
 #[pymodule]
 fn _soup5ever(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(build_tree, m)?)?;
+    m.add_function(wrap_pyfunction!(_parse_only, m)?)?;
     m.add("HTML5EVER_VERSION", "0.40")?;
     Ok(())
 }

@@ -43,7 +43,6 @@ strip = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-norecursedirs = ["vendor"]
 addopts = "-ra"
 
 [tool.ruff]
@@ -53,3 +52,8 @@ extend-exclude = ["tests/vendor"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
+# Line length is the formatter's job; long HTML literals in test data stay.
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["soup5ever", "benchmarks"]

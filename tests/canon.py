@@ -195,17 +195,20 @@ def diff(a, b, path="") -> str | None:
         and a[:1] == b[:1]
         and a[0] in ("tag", "document")
     ):
-        head_a, head_b = a[:-1] if a[0] == "document" else a[:5], b[:-1] if b[0] == "document" else b[:5]
+        head_a, head_b = (
+            a[:-1] if a[0] == "document" else a[:5],
+            b[:-1] if b[0] == "document" else b[:5],
+        )
         if head_a != head_b:
             return f"{path}: {head_a!r} != {head_b!r}"
         ca, cb = a[-1] if a[0] == "document" else a[5], b[-1] if b[0] == "document" else b[5]
         name = a[3] if a[0] == "tag" else "#document"
-        for i, (x, y) in enumerate(zip(ca, cb)):
+        for i, (x, y) in enumerate(zip(ca, cb, strict=False)):
             d = diff(x, y, f"{path}/{name}[{i}]")
             if d:
                 return d
         if len(ca) != len(cb):
-            return f"{path}/{name}: {len(ca)} children != {len(cb)}: {ca[len(cb):]!r:.200} / {cb[len(ca):]!r:.200}"
+            return f"{path}/{name}: {len(ca)} children != {len(cb)}: {ca[len(cb) :]!r:.200} / {cb[len(ca) :]!r:.200}"
         if a[0] == "tag" and a[6:] != b[6:]:
             return f"{path}/{name}: position {a[6:]} != {b[6:]}"
     return f"{path}: {a!r:.200} != {b!r:.200}"

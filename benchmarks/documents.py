@@ -49,7 +49,7 @@ def _head(title: str) -> str:
         '<meta name=viewport content="width=device-width, initial-scale=1">\n'
         '<link rel=stylesheet href="/static/site.css">\n'
         "<style>body { font: 16px/1.5 sans-serif } .nav > li { display: inline }</style>\n"
-        '<script>window.dataLayer = window.dataLayer || []; if (a < b && c > d) {}</script>\n'
+        "<script>window.dataLayer = window.dataLayer || []; if (a < b && c > d) {}</script>\n"
         "</head>\n"
     )
 
@@ -57,27 +57,40 @@ def _head(title: str) -> str:
 def normal(scale: int = 1, seed: int = 1) -> str:
     """A content page: header, navigation, articles, sidebar, footer."""
     rng = random.Random(seed)
-    parts = [_head("Normal page"), "<body class='page home'>\n<header id=top>\n<nav>\n<ul class=nav>"]
+    parts = [
+        _head("Normal page"),
+        "<body class='page home'>\n<header id=top>\n<nav>\n<ul class=nav>",
+    ]
     for i in range(8):
         parts.append(f'<li><a href="/section/{i}">{_words(rng, 2)}</a></li>')
     parts.append("</ul>\n</nav>\n</header>\n<main>\n")
     for a in range(10 * scale):
         parts.append(f'<article id="post-{a}" class="post entry">\n<h2>{_words(rng, 6)}</h2>\n')
-        parts.append(f'<p class=meta>Posted <time datetime="2026-01-{a % 28 + 1:02d}">today</time></p>\n')
+        parts.append(
+            f'<p class=meta>Posted <time datetime="2026-01-{a % 28 + 1:02d}">today</time></p>\n'
+        )
         for _ in range(rng.randint(3, 6)):
             parts.append(f"<p>{_inline(rng, rng.randint(8, 20))}</p>\n")
         if rng.random() < 0.4:
-            parts.append("<ul>" + "".join(f"<li>{_inline(rng, 3)}</li>" for _ in range(5)) + "</ul>\n")
+            parts.append(
+                "<ul>" + "".join(f"<li>{_inline(rng, 3)}</li>" for _ in range(5)) + "</ul>\n"
+            )
         if rng.random() < 0.3:
-            parts.append(f'<figure><img src="/img/{a}.jpg" alt="{_words(rng, 3)}" width=640 height=480>'
-                         f"<figcaption>{_words(rng, 5)}</figcaption></figure>\n")
+            parts.append(
+                f'<figure><img src="/img/{a}.jpg" alt="{_words(rng, 3)}" width=640 height=480>'
+                f"<figcaption>{_words(rng, 5)}</figcaption></figure>\n"
+            )
         parts.append("</article>\n")
     parts.append("</main>\n<aside><h3>Links</h3><ul>")
     for _ in range(20):
-        parts.append(f'<li><a href="https://example.com/{rng.randint(1, 10**6)}">{_words(rng, 3)}</a>')
-    parts.append("</ul></aside>\n<footer><p>&copy; 2026 Example</p>"
-                 "<form action=/subscribe method=post><input type=email name=email>"
-                 "<button type=submit>Subscribe</button></form></footer>\n</body>\n</html>\n")
+        parts.append(
+            f'<li><a href="https://example.com/{rng.randint(1, 10**6)}">{_words(rng, 3)}</a>'
+        )
+    parts.append(
+        "</ul></aside>\n<footer><p>&copy; 2026 Example</p>"
+        "<form action=/subscribe method=post><input type=email name=email>"
+        "<button type=submit>Subscribe</button></form></footer>\n</body>\n</html>\n"
+    )
     return "".join(parts)
 
 
@@ -88,7 +101,9 @@ def small(seed: int = 1) -> str:
         _head("Small page")
         + "<body><h1>Hello</h1>"
         + "".join(f"<p>{_inline(rng, 10)}</p>" for _ in range(6))
-        + "<ul>" + "".join(f"<li><a href='/{i}'>{_words(rng, 2)}</a></li>" for i in range(6)) + "</ul>"
+        + "<ul>"
+        + "".join(f"<li><a href='/{i}'>{_words(rng, 2)}</a></li>" for i in range(6))
+        + "</ul>"
         + "</body></html>"
     )
 
@@ -109,13 +124,13 @@ def malformed(scale: int = 1, seed: int = 2) -> str:
         # quote swallows whatever follows, which randomly leaves a <select>
         # open around later markup, where html5lib predates the 2025 select
         # parsing rules; see tests/corpus.py "select-formatting".)
-        lambda: f"<div class=\"x>{_words(rng, 2)}</div><b>\">{_words(rng, 2)}</div>",
+        lambda: f'<div class="x>{_words(rng, 2)}</div><b>">{_words(rng, 2)}</div>',
         lambda: f"<select><option>{_words(rng, 1)}<option>{_words(rng, 1)}</select>",
         # (Three, not four: four identical open <b>s hit BS4's html5lib
         # adapter bug in the Noah's Ark clause; see tests/corpus.py.)
         lambda: f"<p><b><b><b>{_words(rng, 2)}</b></b><p>{_words(rng, 2)}",
         lambda: f"<h1>{_words(rng, 2)}<h2>{_words(rng, 2)}</h1>",
-        lambda: f"<form><table><form><tr><td><input name=q></form></table>",
+        lambda: "<form><table><form><tr><td><input name=q></form></table>",
         lambda: f"&amp &lt &copy {_words(rng, 2)} &#x2603 &bogus;",
         lambda: f"<!-- {_words(rng, 3)} -- -->",
         lambda: f"<br/></br><hr><img src=a alt={_words(rng, 1)}>",
@@ -136,8 +151,12 @@ def deep(depth: int = 500, repeat: int = 4) -> str:
 def tables(rows: int = 1500, cols: int = 8, seed: int = 3) -> str:
     """A large data table, with implied tbody/tr/td structure and some foster parenting."""
     rng = random.Random(seed)
-    parts = ["<!DOCTYPE html><title>report</title><table class=data><caption>Report</caption>",
-             "<thead><tr>" + "".join(f"<th scope=col>{_words(rng, 1)}" for _ in range(cols)) + "</thead>"]
+    parts = [
+        "<!DOCTYPE html><title>report</title><table class=data><caption>Report</caption>",
+        "<thead><tr>"
+        + "".join(f"<th scope=col>{_words(rng, 1)}" for _ in range(cols))
+        + "</thead>",
+    ]
     for r in range(rows):
         parts.append(f"<tr class={'odd' if r % 2 else 'even'}>")
         for c in range(cols):
@@ -160,7 +179,7 @@ def foreign(scale: int = 1, seed: int = 4) -> str:
         parts.append(
             f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" '
             f'viewbox="0 0 100 100" width=24 height=24><defs><lineargradient id=g{i}>'
-            f'<stop offset=0 stop-color=red /></lineargradient><clippath id=c{i}><rect width=10 '
+            f"<stop offset=0 stop-color=red /></lineargradient><clippath id=c{i}><rect width=10 "
             f'height=10 /></clippath></defs><g clip-path="url(#c{i})"><circle cx=50 cy=50 r=40 '
             f'fill="url(#g{i})"/><path d="M10 10 L90 90 Z" /><use xlink:href="#g{i}" />'
             f"<foreignObject><p>html in svg</p></foreignObject><text>{_words(rng, 2)}</text></g></svg>"

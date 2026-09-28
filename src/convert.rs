@@ -18,23 +18,32 @@ use pyo3::types::{PyDict, PyList, PyString, PyTuple};
 
 use crate::sink::{Arena, NodeData, DOCUMENT, NONE};
 
-/// Python-side classes and objects the conversion needs.
+/// The Python classes the conversion instantiates, passed from Python as a
+/// dict (see `HTML5everTreeBuilder.feed`).
+#[derive(FromPyObject)]
 pub struct Classes<'py> {
+    #[pyo3(item)]
     pub tag: Bound<'py, PyAny>,
+    #[pyo3(item)]
     pub string: Bound<'py, PyAny>,
+    #[pyo3(item)]
     pub comment: Bound<'py, PyAny>,
+    #[pyo3(item)]
     pub doctype: Bound<'py, PyAny>,
+    #[pyo3(item)]
     pub namespaced_attribute: Bound<'py, PyAny>,
+    #[pyo3(item)]
     pub attribute_dict: Bound<'py, PyAny>,
+    /// Whether `attribute_dict` stores str values unchanged, so it can be
+    /// filled with `PyDict_SetItem` instead of its Python `__setitem__`.
+    #[pyo3(item)]
+    pub attribute_dict_is_plain: bool,
 }
 
 struct Converter<'py, 'a> {
     py: Python<'py>,
     builder: &'a Bound<'py, PyAny>,
     classes: &'a Classes<'py>,
-    /// Whether `attribute_dict` stores str values unchanged, so it can be
-    /// filled with `PyDict_SetItem` instead of its Python `__setitem__`.
-    attribute_dict_is_plain: bool,
     store_line_numbers: bool,
     local_names: HashMap<LocalName, Bound<'py, PyString>>,
     namespaces: HashMap<Namespace, Bound<'py, PyString>>,
@@ -102,14 +111,15 @@ impl<'py> Converter<'py, '_> {
             // An instance of the builder's attribute dict class, filled the
             // way the html5lib builder fills it: through `__setitem__`.
             let container = self.classes.attribute_dict.call0()?;
-            if self.attribute_dict_is_plain {
+            if self.classes.attribute_dict_is_plain {
                 let dict = container.cast::<PyDict>()?;
                 for attr in attrs {
                     dict.set_item(self.attr_name(&attr.name)?, PyString::new(py, &attr.value))?;
                 }
             } else {
                 for attr in attrs {
-                    container.set_item(self.attr_name(&attr.name)?, PyString::new(py, &attr.value))?;
+                    container
+                        .set_item(self.attr_name(&attr.name)?, PyString::new(py, &attr.value))?;
                 }
             }
             container
@@ -143,11 +153,13 @@ impl<'py> Converter<'py, '_> {
         system_id: &Option<html5ever::tendril::StrTendril>,
     ) -> PyResult<Bound<'py, PyAny>> {
         let py = self.py;
-        let s = |t: &Option<html5ever::tendril::StrTendril>| t.as_ref().map(|t| PyString::new(py, t));
+        let s =
+            |t: &Option<html5ever::tendril::StrTendril>| t.as_ref().map(|t| PyString::new(py, t));
         self.classes.doctype.call_method1(
             intern!(py, "for_name_and_ids"),
             (
-                name.as_ref().map_or_else(|| PyString::new(py, ""), |n| PyString::new(py, n)),
+                name.as_ref()
+                    .map_or_else(|| PyString::new(py, ""), |n| PyString::new(py, n)),
                 s(public_id),
                 s(system_id),
             ),
@@ -169,14 +181,12 @@ pub fn build<'py>(
     soup: &Bound<'py, PyAny>,
     builder: &Bound<'py, PyAny>,
     classes: &Classes<'py>,
-    attribute_dict_is_plain: bool,
     store_line_numbers: bool,
 ) -> PyResult<()> {
     let mut conv = Converter {
         py,
         builder,
         classes,
-        attribute_dict_is_plain,
         store_line_numbers,
         local_names: HashMap::new(),
         namespaces: HashMap::new(),

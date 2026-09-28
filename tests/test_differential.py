@@ -15,11 +15,10 @@ import pytest
 from bs4 import BeautifulSoup
 
 import soup5ever  # noqa: F401  (registers the builder)
+from benchmarks.documents import TEST_DOCUMENTS
 
 from . import canon
 from .corpus import CASES, KNOWN_DIFFERENCES
-
-from benchmarks.documents import TEST_DOCUMENTS
 
 
 def parse(markup, parser, **kwargs):
@@ -93,7 +92,9 @@ def test_soup_linkage_matches_html5lib():
     # is a doctype; soup5ever follows suit.
     for markup in ["<p>x", "<!--c--><p>x", "<!DOCTYPE html><p>x", ""]:
         ours, theirs = parse(markup, "html5ever"), parse(markup, "html5lib")
-        assert (ours.next_element is ours.contents[0]) == (theirs.next_element is theirs.contents[0])
+        assert (ours.next_element is ours.contents[0]) == (
+            theirs.next_element is theirs.contents[0]
+        )
         assert canon.linkage_problems(ours) == []
 
 

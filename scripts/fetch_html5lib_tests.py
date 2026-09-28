@@ -25,6 +25,7 @@ DEST = pathlib.Path(__file__).resolve().parent.parent / "tests" / "data" / "html
 
 def main() -> None:
     with tempfile.TemporaryDirectory() as tmp:
+
         def git(*args: str) -> None:
             subprocess.run(["git", "-C", tmp, *args], check=True, capture_output=True)
 

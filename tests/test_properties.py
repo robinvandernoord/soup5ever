@@ -29,7 +29,7 @@ markup = st.one_of(
 
 pytestmark = pytest.mark.filterwarnings("ignore")
 
-SETTINGS = settings(max_examples=300, derandomize=True, deadline=None)
+SETTINGS = settings(max_examples=300, derandomize=True, deadline=None, database=None)
 
 
 @SETTINGS

@@ -104,7 +104,11 @@ def test_ordinary_bs4_objects():
     assert doc.p["class"] == ["a", "b"]
     [key] = doc.svg.attrs
     assert type(key) is NamespacedAttribute
-    assert (key.prefix, key.name, key.namespace) == ("xlink", "href", "http://www.w3.org/1999/xlink")
+    assert (key.prefix, key.name, key.namespace) == (
+        "xlink",
+        "href",
+        "http://www.w3.org/1999/xlink",
+    )
 
 
 def test_xmlns_attribute_prefix_is_none():
@@ -214,7 +218,15 @@ def test_navigation_after_reparenting():
     doc = soup("<p><em>foo</p>\n<p>bar<a></a></em></p>")
     assert canon.linkage_problems(doc) == []
     assert [e.name for e in doc.find_all(True)] == [
-        "html", "head", "body", "p", "em", "em", "p", "em", "a",
+        "html",
+        "head",
+        "body",
+        "p",
+        "em",
+        "em",
+        "p",
+        "em",
+        "a",
     ]
     last = doc.find_all("a")[-1]
     assert list(last.parents)[-1] is doc
@@ -227,7 +239,10 @@ def test_tree_modification_after_parse():
     doc.td.append(doc.new_tag("b"))
     doc.body.insert(0, "start")
     assert canon.linkage_problems(doc) == []
-    assert str(doc.body) == "<body>start<table><tbody><tr><td>a<b></b></td></tr></tbody></table></body>"
+    assert (
+        str(doc.body)
+        == "<body>start<table><tbody><tr><td>a<b></b></td></tr></tbody></table></body>"
+    )
 
 
 def test_pickle_and_copy():
@@ -258,9 +273,11 @@ def test_positions_match_html5lib():
 
 
 def test_positions_crlf_and_non_ascii():
-    markup = "a\r\nb\rc<p>é\U0001F600<b>"
+    markup = "a\r\nb\rc<p>é\U0001f600<b>"
     ours, theirs = soup(markup), html5lib(markup)
-    assert (ours.b.sourceline, ours.b.sourcepos) == (theirs.b.sourceline, theirs.b.sourcepos) == (3, 8)
+    assert (
+        (ours.b.sourceline, ours.b.sourcepos) == (theirs.b.sourceline, theirs.b.sourcepos) == (3, 8)
+    )
 
 
 def test_positions_of_implied_elements():
@@ -305,7 +322,10 @@ def test_str_has_no_original_encoding():
         ("<p>é".encode("utf-16-le").join([b"\xff\xfe", b""]), "utf-16le"),
         ("<p>é".encode("utf-16-be").join([b"\xfe\xff", b""]), "utf-16be"),
         (b'<meta charset="iso-8859-2"><p>\xb1', "iso-8859-2"),
-        (b"<meta http-equiv=Content-Type content='text/html; charset=sjis'><p>\x82\xa0", "shift_jis"),
+        (
+            b"<meta http-equiv=Content-Type content='text/html; charset=sjis'><p>\x82\xa0",
+            "shift_jis",
+        ),
         (b"<meta charset=latin1><p>\xe9", "windows-1252"),
         (b"<meta charset=utf-16><p>x", "utf-8"),
         (b"<meta charset=bogus><p>x", "windows-1252"),
@@ -328,7 +348,10 @@ def test_meta_after_prescan_window_reparses():
 
 def test_from_encoding_overrides_meta():
     data = b'<meta charset="iso-8859-2"><p>\xb1'
-    ours, theirs = soup(data, from_encoding="windows-1252"), html5lib(data, from_encoding="windows-1252")
+    ours, theirs = (
+        soup(data, from_encoding="windows-1252"),
+        html5lib(data, from_encoding="windows-1252"),
+    )
     assert ours.original_encoding == theirs.original_encoding == "windows-1252"
     assert ours.p.string == "\xb1"
 
@@ -389,6 +412,32 @@ def test_parse_only_warns():
     with pytest.warns(UserWarning, match="parse_only"):
         doc = soup("<p>a<b>b</b>", parse_only=SoupStrainer("b"))
     assert doc.p is not None
+
+
+# --- garbage collector ---------------------------------------------------
+
+
+def test_gc_state_is_restored():
+    import gc
+
+    assert gc.isenabled()
+    soup("<p>x")
+    assert gc.isenabled()
+    gc.disable()
+    try:
+        soup("<p>x")
+        assert not gc.isenabled()
+    finally:
+        gc.enable()
+
+
+def test_gc_restored_after_error():
+    import gc
+
+    with pytest.raises(TypeError):
+        # element_classes that can't be instantiated make the build fail.
+        soup("<p>x", element_classes={Tag: None})
+    assert gc.isenabled()
 
 
 # --- threads ---------------------------------------------------------------

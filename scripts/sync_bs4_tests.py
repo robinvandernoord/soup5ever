@@ -34,8 +34,17 @@ def main() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         subprocess.run(
             [
-                sys.executable, "-m", "pip", "download", "--quiet", "--no-deps",
-                "--no-binary", ":all:", f"beautifulsoup4=={version}", "-d", tmp,
+                sys.executable,
+                "-m",
+                "pip",
+                "download",
+                "--quiet",
+                "--no-deps",
+                "--no-binary",
+                ":all:",
+                f"beautifulsoup4=={version}",
+                "-d",
+                tmp,
             ],
             check=True,
         )

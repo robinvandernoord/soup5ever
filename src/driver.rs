@@ -20,10 +20,10 @@
 //!   re-decodes and re-parses the bytes, as the HTML spec (and html5lib) do.
 
 use html5ever::buffer_queue::BufferQueue;
+use html5ever::interface::TreeSink;
 use html5ever::tendril::StrTendril;
 use html5ever::tokenizer::{Token, TokenSink, TokenSinkResult, Tokenizer, TokenizerOpts};
 use html5ever::tree_builder::{TreeBuilder, TreeBuilderOpts};
-use html5ever::interface::TreeSink;
 use html5ever::TokenizerResult;
 
 use encoding_rs::Encoding;
@@ -244,5 +244,195 @@ pub fn parse_str(text: &str, track_positions: bool) -> Arena {
     match parse(StrTendril::from_slice(text), &opts) {
         Outcome::Done(arena) => arena,
         Outcome::Reparse(_) => unreachable!("str input never changes encoding"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::sink::{NodeData, DOCUMENT};
+
+    /// A compact rendering of the arena: `name(children)`, `"text"`, etc.
+    fn render(arena: &Arena, id: u32, out: &mut String) {
+        for child in arena.children(id) {
+            match &arena.nodes[child as usize].data {
+                NodeData::Element {
+                    name,
+                    attrs,
+                    template_contents,
+                    ..
+                } => {
+                    out.push_str(&name.local);
+                    for a in attrs {
+                        out.push_str(&format!(" {}={}", &*a.name.local, &*a.value));
+                    }
+                    out.push('(');
+                    render(arena, child, out);
+                    if *template_contents != crate::sink::NONE {
+                        out.push_str("#content(");
+                        render(arena, *template_contents, out);
+                        out.push(')');
+                    }
+                    out.push(')');
+                }
+                NodeData::Text(t) => out.push_str(&format!("{:?}", &**t)),
+                NodeData::Comment(t) => out.push_str(&format!("<!--{}-->", &**t)),
+                NodeData::Doctype {
+                    name,
+                    public_id,
+                    system_id,
+                } => out.push_str(&format!(
+                    "<!DOCTYPE {:?} {:?} {:?}>",
+                    name.as_deref(),
+                    public_id.as_deref(),
+                    system_id.as_deref()
+                )),
+                NodeData::Document | NodeData::Fragment => unreachable!(),
+            }
+        }
+    }
+
+    fn tree(html: &str) -> String {
+        let arena = parse_str(html, true);
+        let mut out = String::new();
+        render(&arena, DOCUMENT, &mut out);
+        out
+    }
+
+    fn positions(html: &str) -> Vec<(String, u32, i64)> {
+        let arena = parse_str(html, true);
+        arena
+            .nodes
+            .iter()
+            .filter_map(|n| match &n.data {
+                NodeData::Element {
+                    name, line, pos, ..
+                } => Some((name.local.to_string(), *line, *pos)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn implied_structure() {
+        assert_eq!(tree("<p>Hello"), r#"html(head()body(p("Hello")))"#);
+    }
+
+    #[test]
+    fn text_is_merged() {
+        assert_eq!(tree("a<!---->b"), r#"html(head()body("a"<!---->"b"))"#);
+        assert_eq!(tree("a&amp;b</x>c"), r#"html(head()body("a&bc"))"#);
+    }
+
+    #[test]
+    fn foster_parenting() {
+        assert_eq!(
+            tree("<table>x<tr><td>y</table>"),
+            r#"html(head()body("x"table(tbody(tr(td("y"))))))"#
+        );
+    }
+
+    #[test]
+    fn adoption_agency() {
+        assert_eq!(
+            tree("<b>1<p>2</b>3</p>"),
+            r#"html(head()body(b("1")p(b("2")"3")))"#
+        );
+    }
+
+    #[test]
+    fn template_contents_are_a_fragment() {
+        assert_eq!(
+            tree("<template><td>x</td></template>"),
+            r#"html(head(template(#content(td("x"))))body())"#
+        );
+    }
+
+    #[test]
+    fn doctype_keeps_missing_vs_empty_ids() {
+        assert_eq!(
+            tree("<!DOCTYPE html PUBLIC \"\">"),
+            r#"<!DOCTYPE Some("html") Some("") None>html(head()body())"#
+        );
+        assert_eq!(
+            tree("<!DOCTYPE>"),
+            "<!DOCTYPE None None None>html(head()body())"
+        );
+    }
+
+    #[test]
+    fn html_attributes_merge() {
+        assert_eq!(
+            tree("<html a=1><html a=2 b=3>"),
+            "html a=1 b=3(head()body())"
+        );
+    }
+
+    #[test]
+    fn parse_errors_do_not_eat_the_ignored_newline() {
+        // html5ever resets "ignore next LF" on parse-error pseudo-tokens.
+        assert_eq!(tree("<pre></>\nx"), r#"html(head()body(pre("x")))"#);
+    }
+
+    #[test]
+    fn chunking_does_not_change_the_tree() {
+        for html in [
+            "<p>a&amp;b&notin;c&#x41;<b>x</p>y",
+            "<table>x<tr>y<td>z</table>",
+            "<script>a<b>&amp;</script><textarea>\n&lt;</textarea>",
+            "a\r\nb\rc\0d<svg><![CDATA[<x>]]></svg>",
+        ] {
+            let with = parse_str(html, true);
+            let without = parse_str(html, false);
+            let (mut a, mut b) = (String::new(), String::new());
+            render(&with, DOCUMENT, &mut a);
+            render(&without, DOCUMENT, &mut b);
+            assert_eq!(a, b, "{html:?}");
+        }
+    }
+
+    #[test]
+    fn positions_follow_html5lib() {
+        assert_eq!(
+            positions("\n   <p>\n\n<b>"),
+            vec![
+                ("html".into(), 2, 5),
+                ("head".into(), 2, 5),
+                ("body".into(), 2, 5),
+                ("p".into(), 2, 5),
+                ("b".into(), 4, 2),
+            ]
+        );
+        // Implied by text: the end of the text run.
+        assert_eq!(positions("FOO<!-- x -->")[0], ("html".into(), 1, 2));
+        // CRLF is one line break; columns count code points.
+        assert_eq!(positions("a\r\nb\rc<p>é<b>")[4], ("b".into(), 3, 7));
+    }
+
+    #[test]
+    fn adoption_agency_clones_have_no_position() {
+        let p = positions("<b>1<p>2</b>3</p>");
+        // html, head, body, b, p, then the clone of b made at </b>; line 0
+        // means "no position".
+        assert_eq!((p[5].0.as_str(), p[5].1), ("b", 0));
+        assert_ne!(p[3].1, 0);
+    }
+
+    #[test]
+    fn meta_charset_requests_reparse() {
+        let bytes = b"<meta charset=iso-8859-2><p>\xb1";
+        let (arena, enc) = parse_bytes(bytes, &[], false);
+        assert_eq!(enc, encoding_rs::ISO_8859_2);
+        let mut out = String::new();
+        render(&arena, DOCUMENT, &mut out);
+        assert!(out.contains("\"\u{105}\""), "{out}");
+        // Late declaration: beyond the prescan, found by the tree builder.
+        let mut late = b"<!--".to_vec();
+        late.extend(std::iter::repeat_n(b'x', 1100));
+        late.extend_from_slice(b"--><meta charset=iso-8859-2><p>\xb1");
+        assert_eq!(parse_bytes(&late, &[], false).1, encoding_rs::ISO_8859_2);
+        // A certain encoding (from the caller) is never changed.
+        let (_, enc) = parse_bytes(bytes, &["windows-1252".into()], false);
+        assert_eq!(enc, encoding_rs::WINDOWS_1252);
     }
 }

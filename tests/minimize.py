@@ -34,7 +34,7 @@ def minimize(markup: str, predicate=differs) -> str:
         chunk = max(1, len(markup) // n)
         reduced = False
         for start in range(0, len(markup), chunk):
-            candidate = markup[:start] + markup[start + chunk:]
+            candidate = markup[:start] + markup[start + chunk :]
             if candidate and predicate(candidate):
                 markup = candidate
                 n = max(n - 1, 2)

@@ -41,40 +41,212 @@ FAILURES = pathlib.Path(__file__).parent / "fuzz_failures"
 #: corpus). Generated input stays out of them so mismatches mean bugs.
 AVOIDED = (
     "select (2025 content model changes)",
-    "ruby rb/rtc", "search", "dialog", "menuitem", "isindex", "keygen",
+    "ruby rb/rtc",
+    "search",
+    "dialog",
+    "menuitem",
+    "isindex",
+    "keygen",
     "template before <body> (html5lib puts it in <body>)",
 )
 
-FORMATTING = ["a", "b", "big", "code", "em", "font", "i", "nobr", "s", "small",
-              "strike", "strong", "tt", "u"]
-BLOCK = ["div", "p", "section", "article", "aside", "nav", "header", "footer",
-         "blockquote", "address", "center", "h1", "h2", "pre", "listing", "ul",
-         "ol", "li", "dl", "dt", "dd", "form", "fieldset", "figure", "main",
-         "details", "summary", "button"]
-TABLE = ["table", "caption", "colgroup", "col", "thead", "tbody", "tfoot", "tr",
-         "td", "th"]
-RAW = ["script", "style", "textarea", "title", "xmp", "iframe", "noembed",
-       "noframes", "noscript", "plaintext"]
-VOID = ["br", "hr", "img", "input", "wbr", "area", "embed", "param", "source",
-        "track", "image", "meta", "link", "base"]
-SVG = ["svg", "g", "path", "circle", "foreignObject", "foreignobject", "desc",
-       "title", "clipPath", "lineargradient", "text", "font", "use"]
-MATH = ["math", "mi", "mo", "mn", "ms", "mtext", "mglyph", "malignmark",
-        "annotation-xml", "mrow"]
-OTHER = ["span", "label", "option", "optgroup", "template", "html", "head",
-         "body", "frameset", "frame", "object", "applet", "marquee", "my-el",
-         "applet", "math", "svg", "table", "p", "a"]
-ATTRS = ["id", "class", "href", "style", "title", "xlink:href", "xml:lang",
-         "xmlns", "xmlns:xlink", "viewbox", "definitionurl", "encoding", "type",
-         "color", "size", "face", "a", "B", "data-x", "☃", "x<y", "\"q"]
-VALUES = ["", "x", "a b  c", "text/html", "hidden", "red", "1", "&amp;",
-          "&lt;&copy", "\x00", "<b>", "'", '"', "é\U0001F600", "application/xhtml+xml"]
-TEXT = ["x", "hello world", " ", "\n", "\t", "\r\n", "\x00", "&amp;", "&copy",
-        "&notin;", "&#x110000;", "&#0;", "&#128;", "&", "<", ">", "&#x0D;",
-        " ", "\U0001F600", "]]>", "<![CDATA[x]]>", "--"]
-MISC = ["<!-- c -->", "<!---->", "<!-->", "<!-- a -- b --!>", "<!", "<?pi x?>",
-        "</>", "</ x>", "<!DOCTYPE html>", '<!DOCTYPE html PUBLIC "a" "b">',
-        "<!doctype>", "<![CDATA[c]]>", "</p>", "</br>", "<", "<3", "</#x>"]
+FORMATTING = [
+    "a",
+    "b",
+    "big",
+    "code",
+    "em",
+    "font",
+    "i",
+    "nobr",
+    "s",
+    "small",
+    "strike",
+    "strong",
+    "tt",
+    "u",
+]
+BLOCK = [
+    "div",
+    "p",
+    "section",
+    "article",
+    "aside",
+    "nav",
+    "header",
+    "footer",
+    "blockquote",
+    "address",
+    "center",
+    "h1",
+    "h2",
+    "pre",
+    "listing",
+    "ul",
+    "ol",
+    "li",
+    "dl",
+    "dt",
+    "dd",
+    "form",
+    "fieldset",
+    "figure",
+    "main",
+    "details",
+    "summary",
+    "button",
+]
+TABLE = ["table", "caption", "colgroup", "col", "thead", "tbody", "tfoot", "tr", "td", "th"]
+RAW = [
+    "script",
+    "style",
+    "textarea",
+    "title",
+    "xmp",
+    "iframe",
+    "noembed",
+    "noframes",
+    "noscript",
+    "plaintext",
+]
+VOID = [
+    "br",
+    "hr",
+    "img",
+    "input",
+    "wbr",
+    "area",
+    "embed",
+    "param",
+    "source",
+    "track",
+    "image",
+    "meta",
+    "link",
+    "base",
+]
+SVG = [
+    "svg",
+    "g",
+    "path",
+    "circle",
+    "foreignObject",
+    "foreignobject",
+    "desc",
+    "title",
+    "clipPath",
+    "lineargradient",
+    "text",
+    "font",
+    "use",
+]
+MATH = ["math", "mi", "mo", "mn", "ms", "mtext", "mglyph", "malignmark", "annotation-xml", "mrow"]
+OTHER = [
+    "span",
+    "label",
+    "option",
+    "optgroup",
+    "template",
+    "html",
+    "head",
+    "body",
+    "frameset",
+    "frame",
+    "object",
+    "applet",
+    "marquee",
+    "my-el",
+    "applet",
+    "math",
+    "svg",
+    "table",
+    "p",
+    "a",
+]
+ATTRS = [
+    "id",
+    "class",
+    "href",
+    "style",
+    "title",
+    "xlink:href",
+    "xml:lang",
+    "xmlns",
+    "xmlns:xlink",
+    "viewbox",
+    "definitionurl",
+    "encoding",
+    "type",
+    "color",
+    "size",
+    "face",
+    "a",
+    "B",
+    "data-x",
+    "☃",
+    "x<y",
+    '"q',
+]
+VALUES = [
+    "",
+    "x",
+    "a b  c",
+    "text/html",
+    "hidden",
+    "red",
+    "1",
+    "&amp;",
+    "&lt;&copy",
+    "\x00",
+    "<b>",
+    "'",
+    '"',
+    "é\U0001f600",
+    "application/xhtml+xml",
+]
+TEXT = [
+    "x",
+    "hello world",
+    " ",
+    "\n",
+    "\t",
+    "\r\n",
+    "\x00",
+    "&amp;",
+    "&copy",
+    "&notin;",
+    "&#x110000;",
+    "&#0;",
+    "&#128;",
+    "&",
+    "<",
+    ">",
+    "&#x0D;",
+    " ",
+    "\U0001f600",
+    "]]>",
+    "<![CDATA[x]]>",
+    "--",
+]
+MISC = [
+    "<!-- c -->",
+    "<!---->",
+    "<!-->",
+    "<!-- a -- b --!>",
+    "<!",
+    "<?pi x?>",
+    "</>",
+    "</ x>",
+    "<!DOCTYPE html>",
+    '<!DOCTYPE html PUBLIC "a" "b">',
+    "<!doctype>",
+    "<![CDATA[c]]>",
+    "</p>",
+    "</br>",
+    "<",
+    "<3",
+    "</#x>",
+]
 
 
 def _attrs(rng: random.Random) -> str:
@@ -132,16 +304,21 @@ def mutate(rng: random.Random, markup: str) -> str:
             markup = markup[:pos]  # unexpected EOF
         elif op < 0.9 and markup:
             start = rng.randint(0, len(markup) - 1)
-            piece = markup[start:start + rng.randint(1, 30)]
+            piece = markup[start : start + rng.randint(1, 30)]
             markup = markup[:pos] + piece + markup[pos:]
         else:
             markup = markup[:pos] + rng.choice("<>&\"'=/\x00\r\n!-") + markup[pos:]
     return markup
 
 
-SEEDS = [CASES[k] for k in sorted(CASES) if k not in KNOWN_DIFFERENCES
-         and "select" not in CASES[k] and "template" not in CASES[k]
-         and "ruby" not in CASES[k]]
+SEEDS = [
+    CASES[k]
+    for k in sorted(CASES)
+    if k not in KNOWN_DIFFERENCES
+    and "select" not in CASES[k]
+    and "template" not in CASES[k]
+    and "ruby" not in CASES[k]
+]
 
 
 def input_for(seed: int, iteration: int) -> str:
@@ -155,7 +332,17 @@ def _avoided(markup: str) -> bool:
     lowered = markup.lower()
     return any(
         f"<{name}" in lowered
-        for name in ("select", "ruby", "rb", "rtc", "search", "dialog", "menuitem", "isindex", "keygen")
+        for name in (
+            "select",
+            "ruby",
+            "rb",
+            "rtc",
+            "search",
+            "dialog",
+            "menuitem",
+            "isindex",
+            "keygen",
+        )
     )
 
 
@@ -200,7 +387,7 @@ def triage(inputs: list[str]) -> list[str] | None:
         print(f"(Chromium oracle unavailable: {exc.__class__.__name__}; not triaging)")
         return None
     verdicts = []
-    for markup, browser in zip(inputs, results):
+    for markup, browser in zip(inputs, results, strict=True):
         ours, theirs = trees(markup)
         if ours == browser:
             verdicts.append("html5lib bug")
@@ -228,8 +415,10 @@ def main() -> None:
         verdict = verdicts[n] if verdicts else "untriaged"
         bugs += verdict != "html5lib bug"
         print(f"[{verdict}] seed={args.seed} iteration={i}: {small!r}\n    {difference}")
-    print(f"{args.iterations} inputs, {len(failures)} mismatches, {len(distinct)} distinct, "
-          f"{bugs} not attributable to html5lib")
+    print(
+        f"{args.iterations} inputs, {len(failures)} mismatches, {len(distinct)} distinct, "
+        f"{bugs} not attributable to html5lib"
+    )
     raise SystemExit(1 if bugs else 0)
 
 

@@ -32,8 +32,12 @@ def chromium(docs: list[str]) -> list[str]:
     env.setdefault("CHROMIUM_PATH", "/opt/pw-browsers/chromium")
     node = env.get("NODE", "/opt/node22/bin/node")
     out = subprocess.run(
-        [node, str(SCRIPT)], input=json.dumps(docs), capture_output=True, text=True,
-        env=env, check=True,
+        [node, str(SCRIPT)],
+        input=json.dumps(docs),
+        capture_output=True,
+        text=True,
+        env=env,
+        check=True,
     )
     return json.loads(out.stdout)
 
@@ -50,19 +54,22 @@ def trees(markup: str) -> tuple[str, str]:
 def calibrate() -> None:
     cases = [c for c in html5lib_dat.all_cases() if c.applicable]
     results = chromium([c.data for c in cases])
-    bad = [c.id for c, r in zip(cases, results) if r != c.document]
+    bad = [c.id for c, r in zip(cases, results, strict=True) if r != c.document]
     print(f"Chromium matches the spec corpus on {len(cases) - len(bad)}/{len(cases)} cases")
     print("mismatches:", " ".join(bad))
 
 
 def main(paths: list[str]) -> None:
     docs = [Path(p).read_text(encoding="utf-8") for p in paths]
-    for path, markup, browser in zip(paths, docs, chromium(docs)):
+    for path, markup, browser in zip(paths, docs, chromium(docs), strict=True):
         ours, theirs = trees(markup)
         verdict = (
-            "html5lib wrong (soup5ever == chromium)" if ours == browser != theirs
-            else "SOUP5EVER WRONG (html5lib == chromium)" if theirs == browser != ours
-            else "agree" if ours == theirs
+            "html5lib wrong (soup5ever == chromium)"
+            if ours == browser != theirs
+            else "SOUP5EVER WRONG (html5lib == chromium)"
+            if theirs == browser != ours
+            else "agree"
+            if ours == theirs
             else "all three differ"
         )
         print(f"{verdict:42s} {markup!r:.70}  [{path}]")

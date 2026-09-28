@@ -276,7 +276,10 @@ mod tests {
         assert_eq!(prescan(b"<meta charset=\"sjis\">"), Some(SHIFT_JIS));
         assert_eq!(prescan(b"<META CHARSET='iso-8859-2'>"), Some(ISO_8859_2));
         assert_eq!(prescan(b"<meta charset=utf-16le>"), Some(UTF_8));
-        assert_eq!(prescan(b"<meta charset=x-user-defined>"), Some(WINDOWS_1252));
+        assert_eq!(
+            prescan(b"<meta charset=x-user-defined>"),
+            Some(WINDOWS_1252)
+        );
     }
 
     #[test]
@@ -284,12 +287,18 @@ mod tests {
         let doc = b"<meta http-equiv=\"Content-Type\" content=\"text/html; charset=ISO-8859-2\">";
         assert_eq!(prescan(doc), Some(ISO_8859_2));
         // Without the pragma, a content attribute is ignored.
-        assert_eq!(prescan(b"<meta content=\"text/html; charset=ISO-8859-2\">"), None);
+        assert_eq!(
+            prescan(b"<meta content=\"text/html; charset=ISO-8859-2\">"),
+            None
+        );
     }
 
     #[test]
     fn prescan_skips_comments_and_tags() {
-        assert_eq!(prescan(b"<!-- <meta charset=sjis> --><p title='<meta charset=sjis>'>"), None);
+        assert_eq!(
+            prescan(b"<!-- <meta charset=sjis> --><p title='<meta charset=sjis>'>"),
+            None
+        );
         assert_eq!(prescan(b"<!-- x --><meta charset=sjis>"), Some(SHIFT_JIS));
         assert_eq!(prescan(b"<!-- unterminated <meta charset=sjis>"), None);
     }
@@ -305,11 +314,20 @@ mod tests {
     fn sniff_order() {
         let bom = b"\xef\xbb\xbf<meta charset=sjis>";
         let s = sniff(bom, &[]);
-        assert_eq!((s.encoding, s.confidence, s.skip), (UTF_8, Confidence::Certain, 3));
+        assert_eq!(
+            (s.encoding, s.confidence, s.skip),
+            (UTF_8, Confidence::Certain, 3)
+        );
         let s = sniff(b"<meta charset=sjis>", &["iso-8859-2".into()]);
-        assert_eq!((s.encoding, s.confidence), (ISO_8859_2, Confidence::Certain));
+        assert_eq!(
+            (s.encoding, s.confidence),
+            (ISO_8859_2, Confidence::Certain)
+        );
         let s = sniff(b"<meta charset=sjis>", &["not-an-encoding".into()]);
-        assert_eq!((s.encoding, s.confidence), (SHIFT_JIS, Confidence::Tentative));
+        assert_eq!(
+            (s.encoding, s.confidence),
+            (SHIFT_JIS, Confidence::Tentative)
+        );
         assert_eq!(sniff("<p>é".as_bytes(), &[]).encoding, UTF_8);
         assert_eq!(sniff(b"<p>\xe9", &[]).encoding, WINDOWS_1252);
         assert_eq!(sniff(b"<p>ascii", &[]).encoding, WINDOWS_1252);
