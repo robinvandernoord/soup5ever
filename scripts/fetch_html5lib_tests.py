@@ -27,7 +27,12 @@ def main() -> None:
     with tempfile.TemporaryDirectory() as tmp:
 
         def git(*args: str) -> None:
-            subprocess.run(["git", "-C", tmp, *args], check=True, capture_output=True)
+            # autocrlf would rewrite the literal CRs some test cases contain.
+            subprocess.run(
+                ["git", "-c", "core.autocrlf=false", "-C", tmp, *args],
+                check=True,
+                capture_output=True,
+            )
 
         git("init", "-q")
         git("remote", "add", "origin", REPO)

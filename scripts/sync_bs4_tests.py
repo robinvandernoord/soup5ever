@@ -7,6 +7,7 @@ this script downloads the sdist and copies the relevant files.
 
     python scripts/sync_bs4_tests.py            # version of the installed bs4
     python scripts/sync_bs4_tests.py 4.15.0     # a specific version
+    python scripts/sync_bs4_tests.py --dest DIR # somewhere else
 
 CI runs this before the test suite so the smoke tests always match the bs4
 version under test.
@@ -25,9 +26,15 @@ DEST = pathlib.Path(__file__).resolve().parent.parent / "tests" / "vendor" / "bs
 
 
 def main() -> None:
-    if len(sys.argv) > 1:
-        version = sys.argv[1]
-    else:
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("version", nargs="?")
+    parser.add_argument("--dest", type=pathlib.Path, default=DEST)
+    args = parser.parse_args()
+    dest = args.dest
+    version = args.version
+    if version is None:
         import bs4
 
         version = bs4.__version__
@@ -50,13 +57,13 @@ def main() -> None:
         )
         [sdist] = pathlib.Path(tmp).glob("beautifulsoup4-*.tar.gz")
         with tarfile.open(sdist) as tar:
-            DEST.mkdir(parents=True, exist_ok=True)
+            dest.mkdir(parents=True, exist_ok=True)
             for name in FILES:
                 member = tar.getmember(f"beautifulsoup4-{version}/bs4/tests/{name}")
                 data = tar.extractfile(member).read()
-                (DEST / name).write_bytes(data)
-    (DEST / "VERSION").write_text(version + "\n")
-    print(f"vendored bs4 {version} tests into {DEST}")
+                (dest / name).write_bytes(data)
+    (dest / "VERSION").write_text(version + "\n")
+    print(f"vendored bs4 {version} tests into {dest}")
 
 
 if __name__ == "__main__":
