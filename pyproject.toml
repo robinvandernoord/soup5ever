@@ -1,0 +1,58 @@
+[build-system]
+requires = ["maturin>=1.9,<2"]
+build-backend = "maturin"
+
+[project]
+name = "soup5ever"
+description = "A BeautifulSoup tree builder backed by Rust's html5ever HTML5 parser"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+dependencies = ["beautifulsoup4>=4.13"]
+dynamic = ["version"]
+keywords = ["html", "html5", "parser", "beautifulsoup", "bs4", "html5ever"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Rust",
+    "Topic :: Text Processing :: Markup :: HTML",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8", "html5lib>=1.1", "hypothesis>=6"]
+dev = ["soup5ever[test]", "maturin>=1.9,<2", "ruff>=0.6"]
+
+[project.urls]
+Source = "https://github.com/robinvandernoord/soup5ever"
+
+[tool.maturin]
+python-source = "python"
+module-name = "soup5ever._soup5ever"
+features = []
+strip = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = ["vendor"]
+addopts = "-ra"
+markers = [
+    "fuzz: slow differential fuzzing (deselected unless SOUP5EVER_FUZZ is set)",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["tests/vendor"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]

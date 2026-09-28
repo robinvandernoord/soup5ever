@@ -1,0 +1,16 @@
+[package]
+name = "soup5ever"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "MIT"
+description = "Rust html5ever tree builder for BeautifulSoup 4 (Python extension; not published on crates.io)"
+
+[lib]
+name = "_soup5ever"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+html5ever = "0.40"
+encoding_rs = "0.8"
+pyo3 = { version = "0.29", features = ["abi3-py310"] }
