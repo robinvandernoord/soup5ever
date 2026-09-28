@@ -43,7 +43,10 @@ jobs:
         with:
           python-version: "3.13"
       - uses: dtolnay/rust-toolchain@stable
+      # The test binary links libpython (the extension module itself doesn't).
       - run: cargo test --release
+        env:
+          LD_LIBRARY_PATH: ${{ env.pythonLocation }}/lib
 
   # Build from source and run the full suite (BS4 contract, html5lib-tests,
   # differential corpus, property tests).
@@ -175,8 +178,9 @@ jobs:
       - name: Install wheel
         shell: bash
         run: |
-          pip install --only-binary soup5ever --no-index --find-links dist soup5ever
-          pip install "soup5ever[test]" --find-links dist
+          # The wheel from this run (never PyPI's), then its dependencies.
+          pip install --no-index --no-deps --find-links dist soup5ever
+          pip install "soup5ever[test]"
           python -c "import soup5ever, bs4; print(soup5ever.__version__, bs4.__version__)"
       - run: python scripts/fetch_html5lib_tests.py
       - name: Test against the installed wheel
@@ -207,8 +211,8 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/io" -w /io python:3.13-alpine sh -euxc '
             apk add --no-cache git
-            pip install --only-binary soup5ever --no-index --find-links dist soup5ever
-            pip install "soup5ever[test]" --find-links dist
+            pip install --no-index --no-deps --find-links dist soup5ever
+            pip install "soup5ever[test]"
             python scripts/fetch_html5lib_tests.py
             rm -rf python
             python -m pytest
