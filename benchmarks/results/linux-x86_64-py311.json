@@ -1,0 +1,84 @@
+{
+  "environment": {
+    "python": "3.11.15",
+    "platform": "Linux-6.18.44-fc-v37-x86_64-with-glibc2.39",
+    "machine": "x86_64",
+    "beautifulsoup4": "4.15.0",
+    "html5lib": "1.1",
+    "soup5ever": "0.1.0"
+  },
+  "results": [
+    {
+      "name": "small",
+      "description": "small normal page",
+      "bytes": 3408,
+      "nodes": 112,
+      "html5lib": 0.002390112018808187,
+      "html5lib_min": 0.002036609849529614,
+      "html5ever": 0.00024991683289116726,
+      "html5ever_min": 0.00022348471441208806,
+      "rust_parse": 5.689991592161286e-05,
+      "html5lib_parser_only": 0.0012844476809607639
+    },
+    {
+      "name": "large",
+      "description": "large normal page",
+      "bytes": 1255459,
+      "nodes": 40588,
+      "html5lib": 0.8880055170002379,
+      "html5lib_min": 0.8701413449998654,
+      "html5ever": 0.10123233559997971,
+      "html5ever_min": 0.0990577590000612,
+      "rust_parse": 0.022116662583357538,
+      "html5lib_parser_only": 0.37422139399996013
+    },
+    {
+      "name": "malformed",
+      "description": "malformed tag soup",
+      "bytes": 106337,
+      "nodes": 10516,
+      "html5lib": 0.4833983010000793,
+      "html5lib_min": 0.42239637300008326,
+      "html5ever": 0.03405175187096956,
+      "html5ever_min": 0.0325940365806497,
+      "rust_parse": 0.010685711347832694,
+      "html5lib_parser_only": 0.19056522624998706
+    },
+    {
+      "name": "deep",
+      "description": "deeply nested (depth 500)",
+      "bytes": 71585,
+      "nodes": 6009,
+      "html5lib": 0.24335450933343358,
+      "html5lib_min": 0.20341687433331876,
+      "html5ever": 0.026112399170725862,
+      "html5ever_min": 0.022482590097563555,
+      "rust_parse": 0.008464692899997317,
+      "html5lib_parser_only": 0.10131035555554667
+    },
+    {
+      "name": "tables",
+      "description": "table-heavy (1500x8)",
+      "bytes": 308517,
+      "nodes": 27059,
+      "html5lib": 0.5066016010000567,
+      "html5lib_min": 0.4983638339999743,
+      "html5ever": 0.06896991236362737,
+      "html5ever_min": 0.05497682081816244,
+      "rust_parse": 0.009635638555563573,
+      "html5lib_parser_only": 0.2760896590000357
+    },
+    {
+      "name": "foreign",
+      "description": "SVG/MathML-heavy",
+      "bytes": 251920,
+      "nodes": 14151,
+      "html5lib": 0.32294297650014414,
+      "html5lib_min": 0.3011468175000118,
+      "html5ever": 0.05083543095651808,
+      "html5ever_min": 0.04740783721737661,
+      "rust_parse": 0.008250593885713897,
+      "html5lib_parser_only": 0.19185689599999023
+    }
+  ]
+}

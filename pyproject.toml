@@ -30,7 +30,7 @@ classifiers = [
 
 [project.optional-dependencies]
 test = ["pytest>=8", "html5lib>=1.1", "hypothesis>=6"]
-dev = ["soup5ever[test]", "maturin>=1.9,<2", "ruff>=0.6"]
+dev = ["pytest>=8", "html5lib>=1.1", "hypothesis>=6", "maturin>=1.9,<2", "ruff>=0.6"]
 
 [project.urls]
 Source = "https://github.com/robinvandernoord/soup5ever"
