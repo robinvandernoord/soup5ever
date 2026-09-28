@@ -87,9 +87,6 @@ class HTML5everTreeBuilder(HTMLTreeBuilder):
                 "doesn't support parse_only. The entire document will be parsed.",
                 stacklevel=4,
             )
-        if not isinstance(markup, (str, bytes)):
-            markup = bytes(markup)
-
         element_classes = soup.element_classes
         classes = (
             element_classes.get(Tag, Tag),

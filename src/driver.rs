@@ -3,14 +3,17 @@
 //! Two things here go beyond `html5ever::parse_document`:
 //!
 //! * Source positions.  BeautifulSoup's html5lib builder records, for each
-//!   tag, the line and column of the stream position when the element was
-//!   created.  For elements created from a start tag that is the column of
-//!   the tag's closing `>`.  html5ever doesn't expose columns, so the input
-//!   is fed to the tokenizer in chunks that end just after each `>`.  A tag
-//!   token is emitted exactly when its `>` is consumed, i.e. at the end of a
-//!   chunk, so every element created while that chunk is processed gets the
-//!   chunk's end position.  Chunks are sub-tendrils of the input (no copying),
-//!   and html5ever's tokenizer is chunk-boundary agnostic by design.
+//!   tag, the line and column of html5lib's stream position when the element
+//!   was created: for an element created from a start tag, the column of the
+//!   tag's closing `>`; for elements implied by text, the end of that text.
+//!   html5ever doesn't expose columns, so the input is fed to the tokenizer
+//!   in chunks that end just after each `>` and just before each `<`, `&`
+//!   and NUL.  A tag
+//!   token is emitted exactly when its `>` is consumed, and a text run when
+//!   its end is reached, i.e. at the end of a chunk, so every element created
+//!   while a chunk is processed gets the chunk's end position.  Chunks are
+//!   sub-tendrils of the input (no copying), and html5ever's tokenizer is
+//!   chunk-boundary agnostic by design.
 //!
 //! * Encoding changes.  When the tree builder reports a `<meta charset>`
 //!   while the encoding is still tentative, parsing stops and the caller
@@ -38,8 +41,9 @@ impl TokenSink for Tap {
     type Handle = u32;
 
     fn process_token(&self, token: Token, line_number: u64) -> TokenSinkResult<u32> {
+        let sink = &self.tree_builder.sink;
         if let Token::DoctypeToken(ref doctype) = token {
-            *self.tree_builder.sink.pending_doctype.borrow_mut() = Some((
+            *sink.pending_doctype.borrow_mut() = Some((
                 doctype.name.clone(),
                 doctype.public_id.clone(),
                 doctype.system_id.clone(),
@@ -167,10 +171,19 @@ pub fn parse(input: StrTendril, opts: &Options) -> Outcome {
         let bytes = input.as_bytes();
         let mut start = 0usize;
         while start < bytes.len() {
-            let end = match bytes[start..].iter().position(|&b| b == b'>') {
-                Some(i) => start + i + 1,
-                None => bytes.len(),
-            };
+            let mut end = bytes.len();
+            for (i, &b) in bytes.iter().enumerate().skip(start) {
+                if b == b'>' {
+                    end = i + 1;
+                    break;
+                }
+                // html5lib hands a text run to the tree builder as soon as it
+                // reaches one of these, before reading any further.
+                if matches!(b, b'<' | b'&' | b'\0') && i > start {
+                    end = i;
+                    break;
+                }
+            }
             position.advance(&bytes[start..end]);
             sink.position.set(position.current());
             queue.push_back(input.subtendril(start as u32, (end - start) as u32));

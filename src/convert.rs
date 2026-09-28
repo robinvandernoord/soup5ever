@@ -69,7 +69,13 @@ impl<'py> Converter<'py, '_> {
         let obj = if name.ns.is_empty() {
             PyString::new(py, &name.local).into_any()
         } else {
-            let prefix = name.prefix.as_ref().map(|p| PyString::new(py, p));
+            // html5ever gives `xmlns` an empty prefix; html5lib (and
+            // NamespacedAttribute's own convention) use None.
+            let prefix = name
+                .prefix
+                .as_ref()
+                .filter(|p| !p.is_empty())
+                .map(|p| PyString::new(py, p));
             self.classes.namespaced_attribute.call1((
                 prefix,
                 PyString::new(py, &name.local),
@@ -109,7 +115,7 @@ impl<'py> Converter<'py, '_> {
             container
         };
         let kwargs = PyDict::new(py);
-        if self.store_line_numbers {
+        if self.store_line_numbers && line != 0 {
             kwargs.set_item(intern!(py, "sourceline"), line)?;
             kwargs.set_item(intern!(py, "sourcepos"), pos)?;
         } else {
@@ -185,9 +191,16 @@ pub fn build<'py>(
     let a_contents = intern!(py, "contents");
 
     let nodes = &arena.nodes;
-    // As with html5lib, the first node's previous_element (and the soup's
-    // next_element) stay None.
-    let mut previous: Option<Bound<'py, PyAny>> = None;
+    // html5lib's adapter links the soup and the first top-level node through
+    // next_element/previous_element, except when that node is the doctype
+    // (which it inserts by a different route). Keep that behavior.
+    let first = nodes[DOCUMENT as usize].first_child;
+    let mut previous: Option<Bound<'py, PyAny>> =
+        if first != NONE && !matches!(nodes[first as usize].data, NodeData::Doctype { .. }) {
+            Some(soup.clone())
+        } else {
+            None
+        };
     let mut stack: Vec<Frame<'py>> = vec![Frame {
         next_child: nodes[DOCUMENT as usize].first_child,
         parent: soup.clone(),
@@ -260,7 +273,7 @@ pub fn build<'py>(
         }
     }
 
-    if let Some(last) = previous {
+    if let Some(last) = previous.filter(|p| !p.is(soup)) {
         soup.setattr(intern!(py, "_most_recent_element"), last)?;
     }
     Ok(())

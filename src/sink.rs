@@ -38,7 +38,8 @@ pub enum NodeData {
         /// Index of the template-contents fragment, or `NONE`.
         template_contents: u32,
         mathml_annotation_xml_integration_point: bool,
-        /// Source position (html5lib semantics, see `driver.rs`).
+        /// Source position (html5lib semantics, see `driver.rs`); line 0
+        /// means "no position".
         line: u32,
         pos: i64,
     },
@@ -130,6 +131,9 @@ pub struct Sink {
     nodes: RefCell<Vec<Node>>,
     /// Position assigned to elements created from now on: (line, pos).
     pub position: Cell<(u32, i64)>,
+    /// The most recently created element, until its first tree operation
+    /// shows whether it is an adoption agency clone (see `create_element`).
+    unsettled: Cell<u32>,
     pub pending_doctype: RefCell<Option<PendingDoctype>>,
 }
 
@@ -146,6 +150,7 @@ impl Sink {
         Sink {
             nodes: RefCell::new(nodes),
             position: Cell::new((1, -1)),
+            unsettled: Cell::new(NONE),
             pending_doctype: RefCell::new(None),
         }
     }
@@ -160,6 +165,32 @@ impl Sink {
 
     fn new_text(&self, text: StrTendril) -> u32 {
         self.push(NodeData::Text(text))
+    }
+
+    /// Called by operations that insert `inserted` or give `receiver` new
+    /// children, to settle the most recently created element.
+    ///
+    /// Every element the tree builder creates is inserted into the tree
+    /// before anything is put inside it, except the copies of formatting
+    /// elements made by the adoption agency algorithm, which first receive
+    /// children (`reparent_children`, or `append` of the previous node).
+    /// html5lib makes those copies with `cloneNode`, which records no source
+    /// position, so they lose theirs here too.
+    fn settle(&self, inserted: u32, receiver: u32) {
+        let id = self.unsettled.get();
+        if id == NONE {
+            return;
+        }
+        if id == receiver {
+            if let NodeData::Element { ref mut line, .. } =
+                self.nodes.borrow_mut()[id as usize].data
+            {
+                *line = 0;
+            }
+            self.unsettled.set(NONE);
+        } else if id == inserted {
+            self.unsettled.set(NONE);
+        }
     }
 }
 
@@ -271,14 +302,16 @@ impl TreeSink for Sink {
             NONE
         };
         let (line, pos) = self.position.get();
-        self.push(NodeData::Element {
+        let id = self.push(NodeData::Element {
             name,
             attrs,
             template_contents,
             mathml_annotation_xml_integration_point: flags.mathml_annotation_xml_integration_point,
             line,
             pos,
-        })
+        });
+        self.unsettled.set(id);
+        id
     }
 
     fn create_comment(&self, text: StrTendril) -> u32 {
@@ -298,6 +331,7 @@ impl TreeSink for Sink {
     fn append(&self, parent: &u32, child: NodeOrText<u32>) {
         match child {
             NodeOrText::AppendNode(node) => {
+                self.settle(node, *parent);
                 append_child(&mut self.nodes.borrow_mut(), *parent, node);
             }
             NodeOrText::AppendText(text) => {
@@ -350,6 +384,7 @@ impl TreeSink for Sink {
     fn append_before_sibling(&self, sibling: &u32, new_node: NodeOrText<u32>) {
         match new_node {
             NodeOrText::AppendNode(node) => {
+                self.settle(node, NONE);
                 insert_before(&mut self.nodes.borrow_mut(), *sibling, node);
             }
             NodeOrText::AppendText(text) => {
@@ -378,6 +413,7 @@ impl TreeSink for Sink {
     }
 
     fn reparent_children(&self, node: &u32, new_parent: &u32) {
+        self.settle(NONE, *new_parent);
         let mut nodes = self.nodes.borrow_mut();
         let mut child = nodes[*node as usize].first_child;
         while child != NONE {

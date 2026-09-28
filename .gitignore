@@ -11,3 +11,4 @@ __pycache__/
 .ruff_cache/
 /tests/fuzz_failures/*.html
 !/tests/fuzz_failures/.gitkeep
+/tests/data/html5lib-tests/
