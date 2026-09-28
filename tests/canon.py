@@ -15,6 +15,8 @@ attribute serialize the same; so do a Comment and a NavigableString holding
 
 from __future__ import annotations
 
+import contextlib
+
 from bs4 import BeautifulSoup
 from bs4.element import (
     Comment,
@@ -157,6 +159,30 @@ def linkage_problems(soup: BeautifulSoup) -> list[str]:
             if isinstance(child, Tag):
                 stack.append(child)
     return problems
+
+
+@contextlib.contextmanager
+def html5lib_adapter_fixed():
+    """Temporarily fix the one BS4 html5lib-adapter bug that affects trees.
+
+    html5lib's Noah's Ark clause decides whether two formatting elements are
+    "the same" with ``node1.attributes == node2.attributes``. BS4's adapter
+    returns a fresh ``AttrList`` (which has no ``__eq__``) on every access,
+    so the comparison is always False. With this patch the html5lib builder
+    is a clean reference for inputs that happen to trigger that bug.
+    """
+    from bs4.builder._html5lib import AttrList
+
+    def __eq__(self, other):
+        return isinstance(other, AttrList) and self.attrs == other.attrs
+
+    AttrList.__eq__ = __eq__
+    AttrList.__hash__ = None
+    try:
+        yield
+    finally:
+        del AttrList.__eq__
+        del AttrList.__hash__
 
 
 def diff(a, b, path="") -> str | None:

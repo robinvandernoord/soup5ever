@@ -32,7 +32,8 @@ use crate::encoding::{self, Confidence};
 use crate::sink::{Arena, Sink};
 
 /// A `TokenSink` that forwards to the tree builder, recording the raw
-/// DOCTYPE token on the way (see `sink::PendingDoctype`).
+/// DOCTYPE token on the way (see `sink::PendingDoctype`) and dropping parse
+/// errors.
 struct Tap {
     tree_builder: TreeBuilder<u32, Sink>,
 }
@@ -41,6 +42,14 @@ impl TokenSink for Tap {
     type Handle = u32;
 
     fn process_token(&self, token: Token, line_number: u64) -> TokenSinkResult<u32> {
+        // Parse errors are of no use to BeautifulSoup, and letting them reach
+        // the tree builder is actively harmful: html5ever resets its "ignore
+        // the next LF" flag (set by <pre>, <listing>, <textarea>) on every
+        // token, including these pseudo-tokens, so `<pre></>\n` would keep
+        // the newline that the spec says to drop.
+        if let Token::ParseError(_) = token {
+            return TokenSinkResult::Continue;
+        }
         let sink = &self.tree_builder.sink;
         if let Token::DoctypeToken(ref doctype) = token {
             *sink.pending_doctype.borrow_mut() = Some((

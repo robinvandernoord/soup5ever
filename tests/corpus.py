@@ -48,6 +48,8 @@ CASES: dict[str, str] = {
     "formatting-reconstruct": "<i>a<p>b<p>c</i>d",
     "font-color": "<font color=red><p>x</font>y",
     "aaa-outer-loop-limit": "<a>" + "<div>" * 12 + "</a>",
+    # Found by the generated malformed benchmark document (minimized).
+    "noahs-ark-reconstruct": "<p><b><b><b><b><p>b",
     # --- tables ------------------------------------------------------------
     "table-implied-tbody": "<table><tr><td>1<td>2<tr><td>3</table>",
     "table-thead-tfoot": "<table><thead><tr><th>h<tfoot><tr><td>f<tbody><tr><td>b</table>",
@@ -173,6 +175,8 @@ CASES: dict[str, str] = {
     "select-nested": "<select><select>x</select>",
     "select-input": "<select><input><option>x",
     "select-content": "<select><div>a</div><span>b</span><option>c</select>",
+    # Found by the generated malformed benchmark document (minimized).
+    "select-formatting": "<select><b>",
     "frameset": "<frameset cols=50%><frame src=a><frameset><frame></frameset></frameset>",
     "frameset-after-body": "<body><frameset>",
     "frameset-after-content": "<p>x<frameset>",
@@ -188,6 +192,23 @@ CASES: dict[str, str] = {
     "bs4-empty-comment": "\n<html>\n<body>\n<form>\n<!----><input type=\"text\">\n</form>\n</body>\n</html>\n",
     "bs4-reparent-children": "<div><a>aftermath<p><noscript>target</noscript>aftermath</a></p></div>",
     "bs4-cloned-multivalue": '<a class="my_class"><p></a>',
+    # --- found by fuzzing (tests/fuzz.py), minimized ------------------------
+    # html5ever bug, worked around in driver.rs: a parse error between <pre>/
+    # <listing> and the next LF made html5ever keep that LF.
+    "fuzz-listing-parse-error-lf": "<listing></>\n",
+    "fuzz-pre-parse-error-lf": "<pre></>\nx",
+    # html5lib bugs (each verified against Chromium's parser):
+    "fuzz-summary-aaa": "<em><summary></em>",
+    "fuzz-main-aaa": "<strike><main></strike>",
+    "fuzz-summary-nested-a": "<a><summary><a>",
+    "fuzz-foreign-end-p": "<svg></p>",
+    "fuzz-foreign-end-br": "<math></br>",
+    "fuzz-listing-ignored-tag-lf": "<listing><tfoot>\n",
+    "fuzz-table-textarea-lf": "<table><textarea>\n",
+    "fuzz-table-textarea-formatting": "<table><s><table><textarea>h",
+    "fuzz-template-aaa": "<u><template></u><",
+    "fuzz-mtext-end-tag": "<math><mtext><k></mtext><",
+    "fuzz-template-reconstruct": "<font><s></font><template>",
     "bs4-xml-decl": '<?xml version="1.0" encoding="utf-8"?>\n<!DOCTYPE html>\n<html>\n<p>foo</p>',
 }
 
@@ -204,10 +225,61 @@ CASES["bs4-bad-document"] = _bad_document()
 #:
 #: Classifications (see README "Known differences"):
 #: * "intentional"  - soup5ever deliberately behaves differently
-#: * "html5lib"     - html5lib / BS4's html5lib adapter deviates from the HTML
+#: * "html5lib"     - html5lib-python deviates from the (current) HTML
 #:                    standard; soup5ever follows the standard
+#: * "bs4-adapter"  - html5lib itself is right, but BS4's html5lib adapter
+#:                    (bs4.builder._html5lib) breaks it; soup5ever is right
 #: * "irrelevant"   - outside the compatibility contract
+_NOT_SPECIAL = (
+    "html5lib-python doesn't treat <main>/<summary> as special elements, so the"
+    " adoption agency algorithm doesn't use them as the furthest block"
+)
+
 KNOWN_DIFFERENCES: dict[str, tuple[str, str]] = {
+    "fuzz-summary-aaa": ("html5lib", _NOT_SPECIAL),
+    "fuzz-main-aaa": ("html5lib", _NOT_SPECIAL),
+    "fuzz-summary-nested-a": ("html5lib", _NOT_SPECIAL),
+    "fuzz-foreign-end-p": (
+        "html5lib",
+        "html5lib-python predates </p> and </br> breaking out of foreign content",
+    ),
+    "fuzz-foreign-end-br": (
+        "html5lib",
+        "html5lib-python predates </p> and </br> breaking out of foreign content",
+    ),
+    "fuzz-listing-ignored-tag-lf": (
+        "html5lib",
+        "html5lib drops a LF after <listing> even when another token came first",
+    ),
+    "fuzz-table-textarea-lf": (
+        "html5lib",
+        "html5lib keeps the leading LF of a foster-parented <textarea>",
+    ),
+    "fuzz-table-textarea-formatting": (
+        "html5lib",
+        "html5lib reconstructs formatting elements inside a foster-parented <textarea>",
+    ),
+    "fuzz-template-aaa": (
+        "html5lib",
+        "html5lib lets </u> close an open <template>; the spec ignores an end tag"
+        " for a formatting element outside the template (a scope boundary)",
+    ),
+    "fuzz-mtext-end-tag": (
+        "html5lib",
+        "html5lib matches </mtext> against the MathML <mtext> element as if it"
+        " were HTML and pops it; the spec ignores the end tag",
+    ),
+    "fuzz-template-reconstruct": (
+        "html5lib",
+        "html5lib reconstructs active formatting elements before a <template>"
+        " start tag, which the spec inserts using the in-head rules",
+    ),
+    "noahs-ark-reconstruct": (
+        "bs4-adapter",
+        "html5lib's Noah's Ark clause compares node.attributes, and BS4's adapter"
+        " returns a new AttrList (no __eq__) each time, so it never matches and"
+        " a fourth identical <b> is reconstructed",
+    ),
     "table-template": (
         "html5lib",
         "html5lib-python predates the <template> insertion mode rules for tables",
@@ -228,6 +300,11 @@ KNOWN_DIFFERENCES: dict[str, tuple[str, str]] = {
         "html5lib",
         "html5lib-python predates the 2025 <select> parsing changes that keep"
         " elements such as <div> inside <select>",
+    ),
+    "select-formatting": (
+        "html5lib",
+        "html5lib-python predates the 2025 <select> parsing changes that keep"
+        " formatting elements inside <select>",
     ),
     "search-dialog": (
         "html5lib",

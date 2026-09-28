@@ -9,7 +9,6 @@ known to get some of them wrong (see test_html5lib_linkage_quirk).
 
 from __future__ import annotations
 
-import pathlib
 import warnings
 
 import pytest
@@ -20,8 +19,7 @@ import soup5ever  # noqa: F401  (registers the builder)
 from . import canon
 from .corpus import CASES, KNOWN_DIFFERENCES
 
-CORPUS_DIR = pathlib.Path(__file__).parent / "corpus"
-DOCUMENTS = sorted(CORPUS_DIR.glob("*.html"))
+from benchmarks.documents import TEST_DOCUMENTS
 
 
 def parse(markup, parser, **kwargs):
@@ -30,9 +28,13 @@ def parse(markup, parser, **kwargs):
         return BeautifulSoup(markup, parser, **kwargs)
 
 
-def compare(markup, **kwargs):
+def compare(markup, fixed_adapter=False, **kwargs):
     ours = parse(markup, "html5ever", **kwargs)
-    theirs = parse(markup, "html5lib", **kwargs)
+    if fixed_adapter:
+        with canon.html5lib_adapter_fixed():
+            theirs = parse(markup, "html5lib", **kwargs)
+    else:
+        theirs = parse(markup, "html5lib", **kwargs)
     assert canon.linkage_problems(ours) == []
     return canon.diff(canon.canonical(ours), canon.canonical(theirs)), ours, theirs
 
@@ -44,6 +46,12 @@ def test_corpus_case(case):
         assert difference, f"{case} is listed as a known difference but now matches html5lib"
     else:
         assert difference is None
+
+
+def test_adapter_fix_explains_bs4_adapter_differences():
+    for case, (kind, _) in KNOWN_DIFFERENCES.items():
+        difference, _, _ = compare(CASES[case], fixed_adapter=True)
+        assert (difference is None) == (kind == "bs4-adapter"), case
 
 
 @pytest.mark.parametrize("case", sorted(CASES))
@@ -65,12 +73,19 @@ def test_corpus_case_without_multivalued_attributes(case):
     assert (difference is None) == (case not in KNOWN_DIFFERENCES)
 
 
-@pytest.mark.parametrize("path", DOCUMENTS, ids=lambda p: p.name)
-def test_documents(path):
-    data = path.read_bytes()
-    difference, ours, theirs = compare(data)
+@pytest.mark.parametrize("kind", sorted(TEST_DOCUMENTS))
+def test_generated_documents(kind):
+    """Larger, realistic documents (the benchmark generators, scaled down)."""
+    markup = TEST_DOCUMENTS[kind]()
+    # Random tag soup trips BS4's html5lib-adapter Noah's Ark bug, so the
+    # reference here is html5lib with that bug fixed.
+    difference, ours, theirs = compare(markup, fixed_adapter=True)
     assert difference is None
-    assert ours.original_encoding == theirs.original_encoding
+    # Declared as utf-8 in the document, so html5lib agrees on bytes too.
+    difference, ours, theirs = compare(markup.encode("utf-8"), fixed_adapter=True)
+    if "charset=utf-8" in markup:
+        assert difference is None
+        assert ours.original_encoding == theirs.original_encoding == "utf-8"
 
 
 def test_soup_linkage_matches_html5lib():

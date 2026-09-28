@@ -45,9 +45,6 @@ strip = true
 testpaths = ["tests"]
 norecursedirs = ["vendor"]
 addopts = "-ra"
-markers = [
-    "fuzz: slow differential fuzzing (deselected unless SOUP5EVER_FUZZ is set)",
-]
 
 [tool.ruff]
 line-length = 100
