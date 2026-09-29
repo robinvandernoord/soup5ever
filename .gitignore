@@ -1,0 +1,16 @@
+target
+__pycache__/
+*.so
+*.pyd
+*.egg-info/
+dist
+.pytest_cache/
+.hypothesis/
+.ruff_cache/
+tests/fuzz_failures/*.html
+tests/data/html5lib-tests/
+benchmarks/results/
+venv*
+.env
+
+uv.lock

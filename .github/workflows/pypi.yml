@@ -1,0 +1,129 @@
+name: Build and Upload Wheels
+
+on:
+  push:
+    tags:
+      - '*'  # Only run on version tags
+  workflow_dispatch:
+
+env:
+  MATURIN_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+  UV_SYSTEM_PYTHON: 1
+
+jobs:
+  x64-linux-gnu:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v5
+      - run: uv pip install maturin[zig]
+      - run: rustup update
+      - run: maturin build --release --strip --target x86_64-unknown-linux-gnu --zig
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-x64-linux-gnu
+          path: target/wheels/
+
+  x64-linux-musl:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v5
+      - run: uv pip install maturin[zig]
+      - run: |
+          rustup target add x86_64-unknown-linux-musl
+          rustup update
+          maturin build --release --strip --target x86_64-unknown-linux-musl --zig
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-x64-linux-musl
+          path: target/wheels/
+
+  arm64-linux-gnu:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v5
+      - run: uv pip install maturin[zig]
+      - run: rustup update
+      - run: maturin build --release --strip --target aarch64-unknown-linux-gnu --zig
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-arm64-linux-gnu
+          path: target/wheels/
+
+  arm64-linux-musl:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v5
+      - run: uv pip install maturin[zig]
+      - run: |
+          rustup target add aarch64-unknown-linux-musl
+          rustup update
+          maturin build --release --strip --target aarch64-unknown-linux-musl --zig
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-arm64-linux-musl
+          path: target/wheels/
+
+  arm64-macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v5
+      - run: uv pip install maturin
+      - run: rustup update
+      - run: maturin build --release --strip --target aarch64-apple-darwin
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-arm64-macos
+          path: target/wheels/
+
+  sdist-and-upload:
+    runs-on: ubuntu-24.04
+    needs:
+      - x64-linux-gnu
+      - x64-linux-musl
+      - arm64-linux-gnu
+      - arm64-linux-musl
+      - arm64-macos
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v5
+      - run: uv pip install maturin
+
+      - name: Build sdist
+        run: maturin sdist
+
+      - name: Download all wheel artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Collect wheels
+        run: |
+          mkdir -p target/wheels
+          find artifacts -name '*.whl' -exec cp {} target/wheels/ \;
+          cp target/*.tar.gz target/wheels/ || true
+
+      - name: Upload to PyPI
+        run: maturin upload --skip-existing -u __token__ target/wheels/*
