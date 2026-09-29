@@ -21,9 +21,7 @@ from .fuzz import SEEDS, generate, mutate
 
 markup = st.one_of(
     st.randoms(use_true_random=False).map(generate),
-    st.tuples(st.randoms(use_true_random=False), st.sampled_from(SEEDS)).map(
-        lambda args: mutate(args[0], args[1])
-    ),
+    st.tuples(st.randoms(use_true_random=False), st.sampled_from(SEEDS)).map(lambda args: mutate(args[0], args[1])),
     st.text(alphabet=st.sampled_from(list("<>/=&;#x0a!-\"' \n\r\x00pbtdsvgm")), max_size=60),
 )
 

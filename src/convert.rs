@@ -1,9 +1,9 @@
-//! Conversion of the finished arena into BeautifulSoup objects.
+//! Conversion of the finished arena into `BeautifulSoup` objects.
 //!
 //! The tree is walked once, in document order.  Each node becomes the same
-//! kind of object BeautifulSoup's html5lib builder would create (`Tag` via
+//! kind of object `BeautifulSoup`'s html5lib builder would create (`Tag` via
 //! the soup's element class, `NavigableString`, `Comment`, `Doctype`), and
-//! the five linkage attributes BeautifulSoup maintains (`parent`,
+//! the five linkage attributes `BeautifulSoup` maintains (`parent`,
 //! `previous_element`/`next_element`, `previous_sibling`/`next_sibling`) plus
 //! `contents` are set directly.  Because the tree is final, every node is
 //! linked exactly once and the linkage is correct by construction; nothing is
@@ -11,9 +11,11 @@
 
 use std::collections::HashMap;
 
+use html5ever::tendril::StrTendril;
 use html5ever::{LocalName, Namespace, QualName};
+use pyo3::exceptions::PyRuntimeError;
 use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods, PyString, PyTuple};
-use pyo3::{Bound, FromPyObject, PyAny, PyResult, Python, intern};
+use pyo3::{Bound, FromPyObject, PyAny, PyErr, PyResult, Python, intern};
 
 use crate::sink::{Arena, DOCUMENT, NONE, NodeData};
 
@@ -39,10 +41,10 @@ pub struct Classes<'py> {
     pub attribute_dict_is_plain: bool,
 }
 
-struct Converter<'py, 'a> {
+struct Converter<'py, 'refs> {
     py: Python<'py>,
-    builder: &'a Bound<'py, PyAny>,
-    classes: &'a Classes<'py>,
+    builder: &'refs Bound<'py, PyAny>,
+    classes: &'refs Classes<'py>,
     store_line_numbers: bool,
     local_names: HashMap<LocalName, Bound<'py, PyString>>,
     namespaces: HashMap<Namespace, Bound<'py, PyString>>,
@@ -82,8 +84,8 @@ impl<'py> Converter<'py, '_> {
             let prefix = name
                 .prefix
                 .as_ref()
-                .filter(|p| !p.is_empty())
-                .map(|p| PyString::new(py, p));
+                .filter(|prefix| !prefix.is_empty())
+                .map(|prefix| PyString::new(py, prefix));
             self.classes.namespaced_attribute.call1((
                 prefix,
                 PyString::new(py, &name.local),
@@ -147,20 +149,18 @@ impl<'py> Converter<'py, '_> {
 
     fn doctype(
         &self,
-        name: &Option<html5ever::tendril::StrTendril>,
-        public_id: &Option<html5ever::tendril::StrTendril>,
-        system_id: &Option<html5ever::tendril::StrTendril>,
+        name: Option<&StrTendril>,
+        public_id: Option<&StrTendril>,
+        system_id: Option<&StrTendril>,
     ) -> PyResult<Bound<'py, PyAny>> {
         let py = self.py;
-        let s =
-            |t: &Option<html5ever::tendril::StrTendril>| t.as_ref().map(|t| PyString::new(py, t));
+        let to_py = |value: Option<&StrTendril>| value.map(|text| PyString::new(py, text));
         self.classes.doctype.call_method1(
             intern!(py, "for_name_and_ids"),
             (
-                name.as_ref()
-                    .map_or_else(|| PyString::new(py, ""), |n| PyString::new(py, n)),
-                s(public_id),
-                s(system_id),
+                to_py(name).unwrap_or_else(|| PyString::new(py, "")),
+                to_py(public_id),
+                to_py(system_id),
             ),
         )
     }
@@ -173,7 +173,11 @@ struct Frame<'py> {
     last_sibling: Option<Bound<'py, PyAny>>,
 }
 
-/// Populate `soup` (already reset by BeautifulSoup) from `arena`.
+/// Populate `soup` (already reset by `BeautifulSoup`) from `arena`.
+///
+/// # Errors
+///
+/// Any exception raised while creating or linking the Python objects.
 pub fn build<'py>(
     py: Python<'py>,
     arena: &Arena,
@@ -204,12 +208,9 @@ pub fn build<'py>(
     // next_element/previous_element, except when that node is the doctype
     // (which it inserts by a different route). Keep that behavior.
     let first = nodes[DOCUMENT as usize].first_child;
-    let mut previous: Option<Bound<'py, PyAny>> =
-        if first != NONE && !matches!(nodes[first as usize].data, NodeData::Doctype { .. }) {
-            Some(soup.clone())
-        } else {
-            None
-        };
+    let mut previous: Option<Bound<'py, PyAny>> = (first != NONE
+        && !matches!(nodes[first as usize].data, NodeData::Doctype { .. }))
+    .then(|| soup.clone());
     let mut stack: Vec<Frame<'py>> = vec![Frame {
         next_child: nodes[DOCUMENT as usize].first_child,
         parent: soup.clone(),
@@ -227,10 +228,10 @@ pub fn build<'py>(
         frame.next_child = node.next_sibling;
 
         let mut children = NONE;
-        let obj = match node.data {
+        let obj = match &node.data {
             NodeData::Element {
-                ref name,
-                ref attrs,
+                name,
+                attrs,
                 template_contents,
                 line,
                 pos,
@@ -239,22 +240,24 @@ pub fn build<'py>(
                 // Template contents are a separate fragment in the HTML DOM;
                 // BeautifulSoup (like html5lib) has no such concept and keeps
                 // them as the template's children.
-                children = if template_contents != NONE {
-                    nodes[template_contents as usize].first_child
-                } else {
+                children = if *template_contents == NONE {
                     node.first_child
+                } else {
+                    nodes[*template_contents as usize].first_child
                 };
-                conv.element(name, attrs, line, pos)?
+                conv.element(name, attrs, *line, *pos)?
             }
-            NodeData::Text(ref text) => classes.string.call1((PyString::new(py, text),))?,
-            NodeData::Comment(ref text) => classes.comment.call1((PyString::new(py, text),))?,
+            NodeData::Text(text) => classes.string.call1((PyString::new(py, text),))?,
+            NodeData::Comment(text) => classes.comment.call1((PyString::new(py, text),))?,
             NodeData::Doctype {
-                ref name,
-                ref public_id,
-                ref system_id,
-            } => conv.doctype(name, public_id, system_id)?,
+                name,
+                public_id,
+                system_id,
+            } => conv.doctype(name.as_ref(), public_id.as_ref(), system_id.as_ref())?,
             NodeData::Document | NodeData::Fragment => {
-                unreachable!("document/fragment nodes are never children")
+                return Err(PyErr::new::<PyRuntimeError, _>(
+                    "soup5ever internal error: document or fragment node inside the tree",
+                ));
             }
         };
 
@@ -282,7 +285,7 @@ pub fn build<'py>(
         }
     }
 
-    if let Some(last) = previous.filter(|p| !p.is(soup)) {
+    if let Some(last) = previous.filter(|last| !last.is(soup)) {
         soup.setattr(intern!(py, "_most_recent_element"), last)?;
     }
     Ok(())

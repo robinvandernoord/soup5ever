@@ -298,13 +298,11 @@ KNOWN_DIFFERENCES: dict[str, tuple[str, str]] = {
     ),
     "select-content": (
         "html5lib",
-        "html5lib-python predates the 2025 <select> parsing changes that keep"
-        " elements such as <div> inside <select>",
+        "html5lib-python predates the 2025 <select> parsing changes that keep elements such as <div> inside <select>",
     ),
     "select-formatting": (
         "html5lib",
-        "html5lib-python predates the 2025 <select> parsing changes that keep"
-        " formatting elements inside <select>",
+        "html5lib-python predates the 2025 <select> parsing changes that keep formatting elements inside <select>",
     ),
     "search-dialog": (
         "html5lib",

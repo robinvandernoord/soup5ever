@@ -1,6 +1,6 @@
 """Benchmark BeautifulSoup(markup, "html5ever") against BeautifulSoup(markup, "html5lib").
 
-    pip install . html5lib
+    uv pip install -e .[dev]
     python benchmarks/run.py                 # all documents
     python benchmarks/run.py --quick         # fewer repetitions
     python benchmarks/run.py --json out.json
@@ -25,16 +25,19 @@ from __future__ import annotations
 
 import argparse
 import gc
+import itertools
 import json
 import platform
 import statistics
 import sys
+import threading
 import time
 import warnings
 
 import bs4
 import html5lib
 from bs4 import BeautifulSoup
+from tabulate import tabulate
 
 import soup5ever
 from documents import BENCHMARKS  # benchmarks/documents.py, next to this script
@@ -68,6 +71,37 @@ def fmt(seconds: float) -> str:
     return f"{seconds * 1e6:.0f} µs"
 
 
+class Spinner:
+    """Show the current step on one self-overwriting stderr line."""
+
+    FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+
+    def __init__(self) -> None:
+        self.text = ""
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._spin, daemon=True)
+        self._enabled = sys.stderr.isatty()
+
+    def __enter__(self) -> "Spinner":
+        if self._enabled:
+            self._thread.start()
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self._stop.set()
+        if self._enabled:
+            self._thread.join()
+            sys.stderr.write("\r\033[K")
+            sys.stderr.flush()
+
+    def _spin(self) -> None:
+        for frame in itertools.cycle(self.FRAMES):
+            if self._stop.wait(0.1):
+                return
+            sys.stderr.write(f"\r\033[K{frame} {self.text}")
+            sys.stderr.flush()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--quick", action="store_true")
@@ -84,42 +118,52 @@ def main() -> None:
         "html5lib": html5lib.__version__,
         "soup5ever": soup5ever.__version__,
     }
-    print(" ".join(f"{k}={v}" for k, v in env.items()))
-    print()
-    header = (
-        "| document | size | nodes | html5lib | html5ever | speedup "
-        "| html5ever: Rust parse | html5lib: parser only |"
-    )
-    print(header)
-    print("|---|---:|---:|---:|---:|---:|---:|---:|")
     results = []
-    for name in args.names:
-        description, factory = BENCHMARKS[name]
-        markup = factory()
-        nodes = _soup5ever._parse_only(markup)
-        lib, lib_min = measure(lambda m=markup: BeautifulSoup(m, "html5lib"), budget, rounds)
-        ever, ever_min = measure(lambda m=markup: BeautifulSoup(m, "html5ever"), budget, rounds)
-        rust, _ = measure(lambda m=markup: _soup5ever._parse_only(m), budget / 3, rounds)
-        native, _ = measure(lambda m=markup: html5lib.parse(m, treebuilder="etree"), budget, rounds)
-        row = {
-            "name": name,
-            "description": description,
-            "bytes": len(markup.encode()),
-            "nodes": nodes,
-            "html5lib": lib,
-            "html5lib_min": lib_min,
-            "html5ever": ever,
-            "html5ever_min": ever_min,
-            "rust_parse": rust,
-            "html5lib_parser_only": native,
-        }
-        results.append(row)
-        print(
-            f"| {name} ({description}) | {row['bytes'] / 1024:.0f} KiB | {nodes:,} "
-            f"| {fmt(lib)} | {fmt(ever)} | **{lib / ever:.1f}x** "
-            f"| {fmt(rust)} ({rust / ever:.0%}) | {fmt(native)} ({native / lib:.0%}) |",
-            flush=True,
-        )
+    with Spinner() as spinner:
+        for n, name in enumerate(args.names, 1):
+            description, factory = BENCHMARKS[name]
+            markup = factory()
+            steps = {
+                "html5lib": (lambda m=markup: BeautifulSoup(m, "html5lib"), budget),
+                "html5ever": (lambda m=markup: BeautifulSoup(m, "html5ever"), budget),
+                "Rust parse only": (lambda m=markup: _soup5ever._parse_only(m), budget / 3),
+                "html5lib parser only": (lambda m=markup: html5lib.parse(m, treebuilder="etree"), budget),
+            }
+            timings = {}
+            for step, (fn, step_budget) in steps.items():
+                spinner.text = f"[{n}/{len(args.names)}] {name}: {step}"
+                timings[step] = measure(fn, step_budget, rounds)
+            results.append(
+                {
+                    "name": name,
+                    "description": description,
+                    "bytes": len(markup.encode()),
+                    "nodes": _soup5ever._parse_only(markup),
+                    "html5lib": timings["html5lib"][0],
+                    "html5lib_min": timings["html5lib"][1],
+                    "html5ever": timings["html5ever"][0],
+                    "html5ever_min": timings["html5ever"][1],
+                    "rust_parse": timings["Rust parse only"][0],
+                    "html5lib_parser_only": timings["html5lib parser only"][0],
+                }
+            )
+
+    print(", ".join(f"{k} {v}" for k, v in env.items()))
+    rows = [
+        [
+            row["description"],
+            f"{row['bytes'] / 1024:.0f} KiB",
+            f"{row['nodes']:,}",
+            fmt(row["html5lib"]),
+            fmt(row["html5ever"]),
+            f"{row['html5lib'] / row['html5ever']:.1f}x",
+            f"{fmt(row['rust_parse'])} ({row['rust_parse'] / row['html5ever']:.0%})",
+            f"{fmt(row['html5lib_parser_only'])} ({row['html5lib_parser_only'] / row['html5lib']:.0%})",
+        ]
+        for row in results
+    ]
+    headers = ["document", "size", "nodes", "html5lib", "html5ever", "speedup", "Rust parse", "html5lib parser"]
+    print(tabulate(rows, headers=headers, tablefmt="rounded_outline", colalign=["left"] + ["right"] * 7))
     if args.json:
         with open(args.json, "w") as f:
             json.dump({"environment": env, "results": results}, f, indent=2)

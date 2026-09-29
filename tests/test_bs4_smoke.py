@@ -54,6 +54,5 @@ class TestAsHTML5Lib(upstream.TestHTML5LibBuilder):
             list(builder.prepare_markup("a", **{name: value}))
         [warning] = w
         assert str(warning.message) == (
-            f"You provided a value for {name}, but the html5ever tree builder "
-            f"doesn't support {name}."
+            f"You provided a value for {name}, but the html5ever tree builder doesn't support {name}."
         )

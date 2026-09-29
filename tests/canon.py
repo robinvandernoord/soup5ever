@@ -53,9 +53,7 @@ def canonical(node: PageElement, *, attr_order: bool = False, positions: bool = 
         attrs = [(_attr_key(k), _attr_value(v)) for k, v in node.attrs.items()]
         if not attr_order:
             attrs.sort()
-        children = tuple(
-            canonical(c, attr_order=attr_order, positions=positions) for c in node.contents
-        )
+        children = tuple(canonical(c, attr_order=attr_order, positions=positions) for c in node.contents)
         if isinstance(node, BeautifulSoup):
             return ("document", children)
         extra = (node.sourceline, node.sourcepos) if positions else ()
@@ -91,9 +89,7 @@ def to_test_format(soup: BeautifulSoup) -> str:
             name = f"{prefix} {node.name}" if prefix else node.name
             lines.append(f"{indent}<{name}>")
             attr_indent = "| " + "  " * (depth + 1)
-            for key, value in sorted(
-                ((_format_attr(k), v) for k, v in node.attrs.items()), key=lambda kv: kv[0]
-            ):
+            for key, value in sorted(((_format_attr(k), v) for k, v in node.attrs.items()), key=lambda kv: kv[0]):
                 if isinstance(value, list):
                     value = " ".join(value)
                 lines.append(f'{attr_indent}{key}="{value}"')
@@ -189,12 +185,7 @@ def diff(a, b, path="") -> str | None:
     """Describe the first difference between two `canonical` structures."""
     if a == b:
         return None
-    if (
-        isinstance(a, tuple)
-        and isinstance(b, tuple)
-        and a[:1] == b[:1]
-        and a[0] in ("tag", "document")
-    ):
+    if isinstance(a, tuple) and isinstance(b, tuple) and a[:1] == b[:1] and a[0] in ("tag", "document"):
         head_a, head_b = (
             a[:-1] if a[0] == "document" else a[:5],
             b[:-1] if b[0] == "document" else b[:5],

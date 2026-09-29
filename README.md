@@ -62,20 +62,20 @@ Shared with html5lib: no `parse_only`, no `Script`/`Stylesheet` string subclasse
 `BeautifulSoup(markup, parser)` on an in-memory `str`, median of 7 rounds, 4-vCPU Linux VM,
 CPython 3.11:
 
-| document | html5lib | html5ever | speedup |
-|---|---:|---:|---:|
-| small page (3 KiB) | 2.4 ms | 250 µs | 9.6x |
-| large page (1.2 MiB) | 888 ms | 101 ms | 8.8x |
-| malformed tag soup | 483 ms | 34 ms | 14.2x |
-| deeply nested | 243 ms | 26 ms | 9.3x |
-| table-heavy | 507 ms | 69 ms | 7.3x |
-| SVG/MathML-heavy | 323 ms | 51 ms | 6.4x |
+| document             | html5lib | html5ever | speedup |
+| -------------------- | -------- | --------- | ------- |
+| small page (3 KiB)   | 2.4 ms   | 250 µs    | 9.6x    |
+| large page (1.2 MiB) | 888 ms   | 101 ms    | 8.8x    |
+| malformed tag soup   | 483 ms   | 34 ms     | 14.2x   |
+| deeply nested        | 243 ms   | 26 ms     | 9.3x    |
+| table-heavy          | 507 ms   | 69 ms     | 7.3x    |
+| SVG/MathML-heavy     | 323 ms   | 51 ms     | 6.4x    |
 
 Parsing in Rust is 14–32% of soup5ever's time; the rest is BeautifulSoup's own object
 constructors. To reproduce:
 
 ```
-uv pip install . html5lib
+uv pip install -e .[dev]
 python benchmarks/run.py
 ```
 

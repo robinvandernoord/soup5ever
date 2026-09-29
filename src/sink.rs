@@ -5,11 +5,11 @@
 //! those mutations on Python objects would mean a Python call per mutation,
 //! so instead the whole tree is built here, in Rust, with `u32` node ids and
 //! intrusive doubly linked child lists (every mutation is O(1)).  Once parsing
-//! is finished the final tree is converted to BeautifulSoup objects in a single
-//! pre-order pass (see `convert.rs`).
+//! is finished the final tree is converted to `BeautifulSoup` objects in a
+//! single pre-order pass (see `convert.rs`).
 
+use core::cell::{Cell, RefCell};
 use std::borrow::Cow;
-use std::cell::{Cell, RefCell};
 
 use html5ever::interface::{ElemName, ElementFlags, NodeOrText, QuirksMode, TreeSink};
 use html5ever::tendril::StrTendril;
@@ -55,8 +55,8 @@ pub struct Node {
 }
 
 impl Node {
-    fn new(data: NodeData) -> Node {
-        Node {
+    const fn new(data: NodeData) -> Self {
+        Self {
             parent: NONE,
             first_child: NONE,
             last_child: NONE,
@@ -73,6 +73,7 @@ pub struct Arena {
 }
 
 impl Arena {
+    #[must_use]
     pub fn children(&self, id: u32) -> Children<'_> {
         Children {
             arena: self,
@@ -81,8 +82,8 @@ impl Arena {
     }
 }
 
-pub struct Children<'a> {
-    arena: &'a Arena,
+pub struct Children<'arena> {
+    arena: &'arena Arena,
     next: u32,
 }
 
@@ -122,7 +123,7 @@ impl ElemName for Name {
 ///
 /// `TreeSink::append_doctype_to_document` receives empty strings for missing
 /// public/system identifiers, which makes `<!DOCTYPE html PUBLIC "">`
-/// indistinguishable from `<!DOCTYPE html>`.  BeautifulSoup (and html5lib)
+/// indistinguishable from `<!DOCTYPE html>`.  `BeautifulSoup` (and html5lib)
 /// keep that distinction, so the tokenizer tap in `driver.rs` records the
 /// original token here just before the tree builder sees it.
 pub type PendingDoctype = (Option<StrTendril>, Option<StrTendril>, Option<StrTendril>);
@@ -130,11 +131,11 @@ pub type PendingDoctype = (Option<StrTendril>, Option<StrTendril>, Option<StrTen
 pub struct Sink {
     nodes: RefCell<Vec<Node>>,
     /// Position assigned to elements created from now on: (line, pos).
-    pub position: Cell<(u32, i64)>,
+    position: Cell<(u32, i64)>,
     /// The most recently created element, until its first tree operation
-    /// shows whether it is an adoption agency clone (see `create_element`).
+    /// shows whether it is an adoption agency clone (see `settle`).
     unsettled: Cell<u32>,
-    pub pending_doctype: RefCell<Option<PendingDoctype>>,
+    pending_doctype: RefCell<Option<PendingDoctype>>,
 }
 
 impl Default for Sink {
@@ -144,10 +145,11 @@ impl Default for Sink {
 }
 
 impl Sink {
-    pub fn new() -> Sink {
+    #[must_use]
+    pub fn new() -> Self {
         let mut nodes = Vec::with_capacity(256);
         nodes.push(Node::new(NodeData::Document));
-        Sink {
+        Self {
             nodes: RefCell::new(nodes),
             position: Cell::new((1, -1)),
             unsettled: Cell::new(NONE),
@@ -155,9 +157,19 @@ impl Sink {
         }
     }
 
+    /// Set the source position for elements created from now on.
+    pub fn set_position(&self, position: (u32, i64)) {
+        self.position.set(position);
+    }
+
+    /// Record the DOCTYPE token the tree builder is about to process.
+    pub fn set_pending_doctype(&self, doctype: PendingDoctype) {
+        *self.pending_doctype.borrow_mut() = Some(doctype);
+    }
+
     fn push(&self, data: NodeData) -> u32 {
         let mut nodes = self.nodes.borrow_mut();
-        let id = nodes.len() as u32;
+        let id = u32::try_from(nodes.len()).expect("document too large");
         assert!(id != NONE, "document too large");
         nodes.push(Node::new(data));
         id
@@ -182,14 +194,29 @@ impl Sink {
             return;
         }
         if id == receiver {
-            if let NodeData::Element { ref mut line, .. } =
-                self.nodes.borrow_mut()[id as usize].data
-            {
+            if let NodeData::Element { line, .. } = &mut self.nodes.borrow_mut()[id as usize].data {
                 *line = 0;
             }
             self.unsettled.set(NONE);
         } else if id == inserted {
             self.unsettled.set(NONE);
+        } else {
+            // An unrelated operation: keep waiting.
+        }
+    }
+
+    fn with_element<T>(&self, id: u32, get: impl FnOnce(&QualName, u32) -> T) -> Option<T> {
+        match &self.nodes.borrow()[id as usize].data {
+            NodeData::Element {
+                name,
+                template_contents,
+                ..
+            } => Some(get(name, *template_contents)),
+            NodeData::Document
+            | NodeData::Fragment
+            | NodeData::Doctype { .. }
+            | NodeData::Text(_)
+            | NodeData::Comment(_) => None,
         }
     }
 }
@@ -197,40 +224,38 @@ impl Sink {
 /// Detach `id` from its parent, if it has one.
 fn detach(nodes: &mut [Node], id: u32) {
     let (parent, prev, next) = {
-        let n = &nodes[id as usize];
-        (n.parent, n.prev_sibling, n.next_sibling)
+        let node = &nodes[id as usize];
+        (node.parent, node.prev_sibling, node.next_sibling)
     };
     if parent == NONE {
         return;
     }
-    if prev != NONE {
-        nodes[prev as usize].next_sibling = next;
-    } else {
+    if prev == NONE {
         nodes[parent as usize].first_child = next;
-    }
-    if next != NONE {
-        nodes[next as usize].prev_sibling = prev;
     } else {
-        nodes[parent as usize].last_child = prev;
+        nodes[prev as usize].next_sibling = next;
     }
-    let n = &mut nodes[id as usize];
-    n.parent = NONE;
-    n.prev_sibling = NONE;
-    n.next_sibling = NONE;
+    if next == NONE {
+        nodes[parent as usize].last_child = prev;
+    } else {
+        nodes[next as usize].prev_sibling = prev;
+    }
+    let node = &mut nodes[id as usize];
+    node.parent = NONE;
+    node.prev_sibling = NONE;
+    node.next_sibling = NONE;
 }
 
 fn append_child(nodes: &mut [Node], parent: u32, child: u32) {
     detach(nodes, child);
     let last = nodes[parent as usize].last_child;
-    {
-        let c = &mut nodes[child as usize];
-        c.parent = parent;
-        c.prev_sibling = last;
-    }
-    if last != NONE {
-        nodes[last as usize].next_sibling = child;
-    } else {
+    let node = &mut nodes[child as usize];
+    node.parent = parent;
+    node.prev_sibling = last;
+    if last == NONE {
         nodes[parent as usize].first_child = child;
+    } else {
+        nodes[last as usize].next_sibling = child;
     }
     nodes[parent as usize].last_child = child;
 }
@@ -238,21 +263,19 @@ fn append_child(nodes: &mut [Node], parent: u32, child: u32) {
 fn insert_before(nodes: &mut [Node], sibling: u32, child: u32) {
     detach(nodes, child);
     let (parent, prev) = {
-        let s = &nodes[sibling as usize];
-        (s.parent, s.prev_sibling)
+        let node = &nodes[sibling as usize];
+        (node.parent, node.prev_sibling)
     };
     debug_assert!(parent != NONE, "insert_before a node without a parent");
-    {
-        let c = &mut nodes[child as usize];
-        c.parent = parent;
-        c.prev_sibling = prev;
-        c.next_sibling = sibling;
-    }
+    let node = &mut nodes[child as usize];
+    node.parent = parent;
+    node.prev_sibling = prev;
+    node.next_sibling = sibling;
     nodes[sibling as usize].prev_sibling = child;
-    if prev != NONE {
-        nodes[prev as usize].next_sibling = child;
-    } else {
+    if prev == NONE {
         nodes[parent as usize].first_child = child;
+    } else {
+        nodes[prev as usize].next_sibling = child;
     }
 }
 
@@ -261,7 +284,7 @@ fn try_merge_text(nodes: &mut [Node], id: u32, text: &StrTendril) -> bool {
     if id == NONE {
         return false;
     }
-    if let NodeData::Text(ref mut existing) = nodes[id as usize].data {
+    if let NodeData::Text(existing) = &mut nodes[id as usize].data {
         existing.push_tendril(text);
         true
     } else {
@@ -272,7 +295,7 @@ fn try_merge_text(nodes: &mut [Node], id: u32, text: &StrTendril) -> bool {
 impl TreeSink for Sink {
     type Handle = u32;
     type Output = Arena;
-    type ElemName<'a> = Name;
+    type ElemName<'name> = Name;
 
     fn finish(self) -> Arena {
         Arena {
@@ -288,11 +311,9 @@ impl TreeSink for Sink {
         DOCUMENT
     }
 
-    fn elem_name<'a>(&'a self, target: &'a u32) -> Name {
-        match self.nodes.borrow()[*target as usize].data {
-            NodeData::Element { ref name, .. } => Name(name.clone()),
-            _ => panic!("elem_name called on a non-element node"),
-        }
+    fn elem_name<'name>(&'name self, target: &'name u32) -> Name {
+        self.with_element(*target, |name, _| Name(name.clone()))
+            .expect("the tree builder only asks for names of elements")
     }
 
     fn create_element(&self, name: QualName, attrs: Vec<Attribute>, flags: ElementFlags) -> u32 {
@@ -337,8 +358,8 @@ impl TreeSink for Sink {
             NodeOrText::AppendText(text) => {
                 let last = self.nodes.borrow()[*parent as usize].last_child;
                 if !try_merge_text(&mut self.nodes.borrow_mut(), last, &text) {
-                    let t = self.new_text(text);
-                    append_child(&mut self.nodes.borrow_mut(), *parent, t);
+                    let node = self.new_text(text);
+                    append_child(&mut self.nodes.borrow_mut(), *parent, node);
                 }
             }
         }
@@ -364,25 +385,23 @@ impl TreeSink for Sink {
         public_id: StrTendril,
         system_id: StrTendril,
     ) {
-        let (name, public_id, system_id) = match self.pending_doctype.borrow_mut().take() {
-            Some(original) => original,
-            None => (Some(name), Some(public_id), Some(system_id)),
-        };
+        let (original_name, original_public_id, original_system_id) = self
+            .pending_doctype
+            .borrow_mut()
+            .take()
+            .unwrap_or((Some(name), Some(public_id), Some(system_id)));
         let id = self.push(NodeData::Doctype {
-            name,
-            public_id,
-            system_id,
+            name: original_name,
+            public_id: original_public_id,
+            system_id: original_system_id,
         });
         append_child(&mut self.nodes.borrow_mut(), DOCUMENT, id);
     }
 
     fn get_template_contents(&self, target: &u32) -> u32 {
-        match self.nodes.borrow()[*target as usize].data {
-            NodeData::Element {
-                template_contents, ..
-            } if template_contents != NONE => template_contents,
-            _ => panic!("get_template_contents called on a non-template node"),
-        }
+        self.with_element(*target, |_, contents| contents)
+            .filter(|&contents| contents != NONE)
+            .expect("the tree builder only asks for contents of templates")
     }
 
     fn same_node(&self, x: &u32, y: &u32) -> bool {
@@ -400,19 +419,22 @@ impl TreeSink for Sink {
             NodeOrText::AppendText(text) => {
                 let prev = self.nodes.borrow()[*sibling as usize].prev_sibling;
                 if !try_merge_text(&mut self.nodes.borrow_mut(), prev, &text) {
-                    let t = self.new_text(text);
-                    insert_before(&mut self.nodes.borrow_mut(), *sibling, t);
+                    let node = self.new_text(text);
+                    insert_before(&mut self.nodes.borrow_mut(), *sibling, node);
                 }
             }
         }
     }
 
-    fn add_attrs_if_missing(&self, target: &u32, new_attrs: Vec<Attribute>) {
+    fn add_attrs_if_missing(&self, target: &u32, attrs: Vec<Attribute>) {
         let mut nodes = self.nodes.borrow_mut();
-        if let NodeData::Element { ref mut attrs, .. } = nodes[*target as usize].data {
-            for attr in new_attrs {
-                if !attrs.iter().any(|a| a.name == attr.name) {
-                    attrs.push(attr);
+        if let NodeData::Element {
+            attrs: existing, ..
+        } = &mut nodes[*target as usize].data
+        {
+            for attr in attrs {
+                if !existing.iter().any(|other| other.name == attr.name) {
+                    existing.push(attr);
                 }
             }
         }

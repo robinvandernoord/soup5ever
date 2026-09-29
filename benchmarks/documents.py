@@ -66,15 +66,11 @@ def normal(scale: int = 1, seed: int = 1) -> str:
     parts.append("</ul>\n</nav>\n</header>\n<main>\n")
     for a in range(10 * scale):
         parts.append(f'<article id="post-{a}" class="post entry">\n<h2>{_words(rng, 6)}</h2>\n')
-        parts.append(
-            f'<p class=meta>Posted <time datetime="2026-01-{a % 28 + 1:02d}">today</time></p>\n'
-        )
+        parts.append(f'<p class=meta>Posted <time datetime="2026-01-{a % 28 + 1:02d}">today</time></p>\n')
         for _ in range(rng.randint(3, 6)):
             parts.append(f"<p>{_inline(rng, rng.randint(8, 20))}</p>\n")
         if rng.random() < 0.4:
-            parts.append(
-                "<ul>" + "".join(f"<li>{_inline(rng, 3)}</li>" for _ in range(5)) + "</ul>\n"
-            )
+            parts.append("<ul>" + "".join(f"<li>{_inline(rng, 3)}</li>" for _ in range(5)) + "</ul>\n")
         if rng.random() < 0.3:
             parts.append(
                 f'<figure><img src="/img/{a}.jpg" alt="{_words(rng, 3)}" width=640 height=480>'
@@ -83,9 +79,7 @@ def normal(scale: int = 1, seed: int = 1) -> str:
         parts.append("</article>\n")
     parts.append("</main>\n<aside><h3>Links</h3><ul>")
     for _ in range(20):
-        parts.append(
-            f'<li><a href="https://example.com/{rng.randint(1, 10**6)}">{_words(rng, 3)}</a>'
-        )
+        parts.append(f'<li><a href="https://example.com/{rng.randint(1, 10**6)}">{_words(rng, 3)}</a>')
     parts.append(
         "</ul></aside>\n<footer><p>&copy; 2026 Example</p>"
         "<form action=/subscribe method=post><input type=email name=email>"
@@ -153,9 +147,7 @@ def tables(rows: int = 1500, cols: int = 8, seed: int = 3) -> str:
     rng = random.Random(seed)
     parts = [
         "<!DOCTYPE html><title>report</title><table class=data><caption>Report</caption>",
-        "<thead><tr>"
-        + "".join(f"<th scope=col>{_words(rng, 1)}" for _ in range(cols))
-        + "</thead>",
+        "<thead><tr>" + "".join(f"<th scope=col>{_words(rng, 1)}" for _ in range(cols)) + "</thead>",
     ]
     for r in range(rows):
         parts.append(f"<tr class={'odd' if r % 2 else 'even'}>")

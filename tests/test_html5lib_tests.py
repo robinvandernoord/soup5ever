@@ -31,9 +31,7 @@ from . import canon, html5lib_dat
 
 CASES = [case for case in html5lib_dat.all_cases() if case.applicable]
 
-pytestmark = pytest.mark.skipif(
-    not CASES, reason="html5lib-tests not downloaded (scripts/fetch_upstream_tests.py)"
-)
+pytestmark = pytest.mark.skipif(not CASES, reason="html5lib-tests not downloaded (scripts/fetch_upstream_tests.py)")
 
 # Cases where soup5ever's tree doesn't match the spec expectation.
 SPEC_FAILURES = {

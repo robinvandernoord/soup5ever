@@ -1,7 +1,7 @@
 //! Character encoding sniffing for byte input.
 //!
 //! Implements the parts of the WHATWG "determining the character encoding"
-//! algorithm that apply to a document handed to BeautifulSoup as bytes:
+//! algorithm that apply to a document handed to `BeautifulSoup` as bytes:
 //!
 //! 1. a byte order mark (confidence: certain);
 //! 2. the user's `from_encoding` override (certain);
@@ -29,7 +29,10 @@ pub struct Sniffed {
     pub skip: usize,
 }
 
-/// <https://encoding.spec.whatwg.org/#concept-encoding-get>
+/// Get an encoding from a label.
+///
+/// See <https://encoding.spec.whatwg.org/#concept-encoding-get>.
+#[must_use]
 pub fn lookup(label: &[u8]) -> Option<&'static Encoding> {
     Encoding::for_label(label)
 }
@@ -37,6 +40,7 @@ pub fn lookup(label: &[u8]) -> Option<&'static Encoding> {
 /// The adjustments from "change the encoding" and the prescan: a document
 /// can't meaningfully declare itself UTF-16 from inside itself, and
 /// x-user-defined is treated as windows-1252.
+#[must_use]
 pub fn adjust_declared(encoding: &'static Encoding) -> &'static Encoding {
     if encoding == UTF_16BE || encoding == UTF_16LE {
         UTF_8
@@ -47,6 +51,8 @@ pub fn adjust_declared(encoding: &'static Encoding) -> &'static Encoding {
     }
 }
 
+/// Determine the encoding of a byte document (see the module docs).
+#[must_use]
 pub fn sniff(bytes: &[u8], overrides: &[String]) -> Sniffed {
     if let Some((encoding, skip)) = Encoding::for_bom(bytes) {
         return Sniffed {
@@ -65,7 +71,7 @@ pub fn sniff(bytes: &[u8], overrides: &[String]) -> Sniffed {
         }
     }
     let encoding = prescan(bytes).unwrap_or_else(|| {
-        if !bytes.is_ascii() && std::str::from_utf8(bytes).is_ok() {
+        if !bytes.is_ascii() && core::str::from_utf8(bytes).is_ok() {
             UTF_8
         } else {
             WINDOWS_1252
@@ -78,19 +84,22 @@ pub fn sniff(bytes: &[u8], overrides: &[String]) -> Sniffed {
     }
 }
 
-fn is_space(b: u8) -> bool {
-    matches!(b, 0x09 | 0x0A | 0x0C | 0x0D | 0x20)
+const fn is_space(byte: u8) -> bool {
+    matches!(byte, 0x09 | 0x0A | 0x0C | 0x0D | 0x20)
 }
 
-/// <https://html.spec.whatwg.org/multipage/parsing.html#prescan-a-byte-stream-to-determine-its-encoding>
+/// Prescan a byte stream to determine its encoding.
+///
+/// See <https://html.spec.whatwg.org/multipage/parsing.html#prescan-a-byte-stream-to-determine-its-encoding>.
+#[must_use]
 pub fn prescan(input: &[u8]) -> Option<&'static Encoding> {
-    let b = &input[..input.len().min(1024)];
+    let bytes = &input[..input.len().min(1024)];
     let mut pos = 0;
-    while pos < b.len() {
-        let rest = &b[pos..];
+    while pos < bytes.len() {
+        let rest = &bytes[pos..];
         if rest.starts_with(b"<!--") {
             // Skip to the end of the comment.
-            let end = find(&b[pos + 4..], b"-->")?;
+            let end = find(&bytes[pos + 4..], b"-->")?;
             pos += 4 + end + 3;
             continue;
         }
@@ -99,7 +108,7 @@ pub fn prescan(input: &[u8]) -> Option<&'static Encoding> {
             && (is_space(rest[5]) || rest[5] == b'/')
         {
             pos += 5;
-            if let Some(encoding) = meta(b, &mut pos) {
+            if let Some(encoding) = meta(bytes, &mut pos) {
                 return Some(encoding);
             }
             continue;
@@ -111,15 +120,15 @@ pub fn prescan(input: &[u8]) -> Option<&'static Encoding> {
         {
             // A start or end tag: skip its name and attributes.
             pos += 1;
-            while pos < b.len() && !is_space(b[pos]) && b[pos] != b'>' {
+            while pos < bytes.len() && !is_space(bytes[pos]) && bytes[pos] != b'>' {
                 pos += 1;
             }
-            while get_attribute(b, &mut pos).is_some() {}
+            while get_attribute(bytes, &mut pos).is_some() {}
             pos += 1;
             continue;
         }
         if rest.starts_with(b"<!") || rest.starts_with(b"</") || rest.starts_with(b"<?") {
-            let end = rest.iter().position(|&c| c == b'>')?;
+            let end = rest.iter().position(|&byte| byte == b'>')?;
             pos += end + 1;
             continue;
         }
@@ -129,12 +138,12 @@ pub fn prescan(input: &[u8]) -> Option<&'static Encoding> {
 }
 
 /// Process the attributes of a `<meta` tag starting at `pos`.
-fn meta(b: &[u8], pos: &mut usize) -> Option<&'static Encoding> {
+fn meta(bytes: &[u8], pos: &mut usize) -> Option<&'static Encoding> {
     let mut seen: Vec<Vec<u8>> = Vec::new();
     let mut got_pragma = false;
     let mut need_pragma: Option<bool> = None;
     let mut charset: Option<&'static Encoding> = None;
-    while let Some((name, value)) = get_attribute(b, pos) {
+    while let Some((name, value)) = get_attribute(bytes, pos) {
         if seen.contains(&name) {
             continue;
         }
@@ -146,9 +155,9 @@ fn meta(b: &[u8], pos: &mut usize) -> Option<&'static Encoding> {
             }
             b"content" => {
                 if charset.is_none()
-                    && let Some(enc) = extract_from_content(&value)
+                    && let Some(encoding) = extract_from_content(&value)
                 {
-                    charset = Some(enc);
+                    charset = Some(encoding);
                     need_pragma = Some(true);
                 }
             }
@@ -167,103 +176,111 @@ fn meta(b: &[u8], pos: &mut usize) -> Option<&'static Encoding> {
     }
 }
 
-/// <https://html.spec.whatwg.org/multipage/parsing.html#concept-get-attributes-when-sniffing>
+/// Get an attribute, as the prescan does.
+///
+/// See <https://html.spec.whatwg.org/multipage/parsing.html#concept-get-attributes-when-sniffing>.
 ///
 /// Attribute names and values are ASCII-lowercased, as the spec requires.
-fn get_attribute(b: &[u8], pos: &mut usize) -> Option<(Vec<u8>, Vec<u8>)> {
-    while *pos < b.len() && (is_space(b[*pos]) || b[*pos] == b'/') {
+fn get_attribute(bytes: &[u8], pos: &mut usize) -> Option<(Vec<u8>, Vec<u8>)> {
+    while *pos < bytes.len() && (is_space(bytes[*pos]) || bytes[*pos] == b'/') {
         *pos += 1;
     }
-    if *pos >= b.len() || b[*pos] == b'>' {
+    if *pos >= bytes.len() || bytes[*pos] == b'>' {
         return None;
     }
     let mut name = Vec::new();
     let mut value = Vec::new();
     // Attribute name.
     loop {
-        let c = *b.get(*pos)?;
-        if c == b'=' && !name.is_empty() {
+        let byte = *bytes.get(*pos)?;
+        if byte == b'/' || byte == b'>' {
+            return Some((name, value));
+        }
+        if byte == b'=' && !name.is_empty() {
             *pos += 1;
             break;
-        } else if is_space(c) {
+        }
+        if is_space(byte) {
             // Spaces between the name and a possible '='.
-            while *pos < b.len() && is_space(b[*pos]) {
+            while *pos < bytes.len() && is_space(bytes[*pos]) {
                 *pos += 1;
             }
-            if b.get(*pos) != Some(&b'=') {
+            if bytes.get(*pos) != Some(&b'=') {
                 return Some((name, value));
             }
             *pos += 1;
             break;
-        } else if c == b'/' || c == b'>' {
-            return Some((name, value));
-        } else {
-            name.push(c.to_ascii_lowercase());
         }
+        name.push(byte.to_ascii_lowercase());
         *pos += 1;
     }
     // Attribute value.
-    while *pos < b.len() && is_space(b[*pos]) {
+    while *pos < bytes.len() && is_space(bytes[*pos]) {
         *pos += 1;
     }
-    let c = *b.get(*pos)?;
-    if c == b'"' || c == b'\'' {
+    let first = *bytes.get(*pos)?;
+    if first == b'"' || first == b'\'' {
         *pos += 1;
         loop {
-            let d = *b.get(*pos)?;
+            let byte = *bytes.get(*pos)?;
             *pos += 1;
-            if d == c {
+            if byte == first {
                 return Some((name, value));
             }
-            value.push(d.to_ascii_lowercase());
+            value.push(byte.to_ascii_lowercase());
         }
     }
-    if c == b'>' {
+    if first == b'>' {
         return Some((name, value));
     }
     loop {
-        let d = *b.get(*pos)?;
-        if is_space(d) || d == b'>' {
+        let byte = *bytes.get(*pos)?;
+        if is_space(byte) || byte == b'>' {
             return Some((name, value));
         }
-        value.push(d.to_ascii_lowercase());
+        value.push(byte.to_ascii_lowercase());
         *pos += 1;
     }
 }
 
-/// <https://html.spec.whatwg.org/multipage/urls-and-fetching.html#algorithm-for-extracting-a-character-encoding-from-a-meta-element>
-pub fn extract_from_content(s: &[u8]) -> Option<&'static Encoding> {
+/// Extract a character encoding from a `<meta content>` value.
+///
+/// See <https://html.spec.whatwg.org/multipage/urls-and-fetching.html#algorithm-for-extracting-a-character-encoding-from-a-meta-element>.
+#[must_use]
+pub fn extract_from_content(content: &[u8]) -> Option<&'static Encoding> {
     let mut pos = 0;
     loop {
-        let found = s[pos..]
+        let found = content[pos..]
             .windows(7)
-            .position(|w| w.eq_ignore_ascii_case(b"charset"))?;
+            .position(|window| window.eq_ignore_ascii_case(b"charset"))?;
         pos += found + 7;
-        while pos < s.len() && is_space(s[pos]) {
+        while pos < content.len() && is_space(content[pos]) {
             pos += 1;
         }
-        if s.get(pos) == Some(&b'=') {
+        if content.get(pos) == Some(&b'=') {
             pos += 1;
             break;
         }
     }
-    while pos < s.len() && is_space(s[pos]) {
+    while pos < content.len() && is_space(content[pos]) {
         pos += 1;
     }
-    let c = *s.get(pos)?;
-    if c == b'"' || c == b'\'' {
-        let end = s[pos + 1..].iter().position(|&d| d == c)?;
-        return lookup(&s[pos + 1..pos + 1 + end]);
+    let first = *content.get(pos)?;
+    if first == b'"' || first == b'\'' {
+        let end = content[pos + 1..].iter().position(|&byte| byte == first)?;
+        return lookup(&content[pos + 1..pos + 1 + end]);
     }
-    let end = s[pos..]
+    let end = content[pos..]
         .iter()
-        .position(|&d| is_space(d) || d == b';')
-        .map_or(s.len(), |e| pos + e);
-    lookup(&s[pos..end])
+        .position(|&byte| is_space(byte) || byte == b';')
+        .map_or(content.len(), |offset| pos + offset);
+    lookup(&content[pos..end])
 }
 
 fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    haystack.windows(needle.len()).position(|w| w == needle)
+    haystack
+        .windows(needle.len())
+        .position(|window| window == needle)
 }
 
 #[cfg(test)]
@@ -313,19 +330,19 @@ mod tests {
     #[test]
     fn sniff_order() {
         let bom = b"\xef\xbb\xbf<meta charset=sjis>";
-        let s = sniff(bom, &[]);
+        let from_bom = sniff(bom, &[]);
         assert_eq!(
-            (s.encoding, s.confidence, s.skip),
+            (from_bom.encoding, from_bom.confidence, from_bom.skip),
             (UTF_8, Confidence::Certain, 3)
         );
-        let s = sniff(b"<meta charset=sjis>", &["iso-8859-2".into()]);
+        let overridden = sniff(b"<meta charset=sjis>", &["iso-8859-2".into()]);
         assert_eq!(
-            (s.encoding, s.confidence),
+            (overridden.encoding, overridden.confidence),
             (ISO_8859_2, Confidence::Certain)
         );
-        let s = sniff(b"<meta charset=sjis>", &["not-an-encoding".into()]);
+        let invalid = sniff(b"<meta charset=sjis>", &["not-an-encoding".into()]);
         assert_eq!(
-            (s.encoding, s.confidence),
+            (invalid.encoding, invalid.confidence),
             (SHIFT_JIS, Confidence::Tentative)
         );
         assert_eq!(sniff("<p>é".as_bytes(), &[]).encoding, UTF_8);

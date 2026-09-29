@@ -48,17 +48,9 @@ def load(path: pathlib.Path) -> list[Case]:
                 data="\n".join(sections["#data"]),
                 document="\n".join(doc),
                 fragment=(
-                    "\n".join(sections["#document-fragment"]).strip()
-                    if "#document-fragment" in sections
-                    else None
+                    "\n".join(sections["#document-fragment"]).strip() if "#document-fragment" in sections else None
                 ),
-                scripting=(
-                    True
-                    if "#script-on" in sections
-                    else False
-                    if "#script-off" in sections
-                    else None
-                ),
+                scripting=(True if "#script-on" in sections else False if "#script-off" in sections else None),
             )
         )
 

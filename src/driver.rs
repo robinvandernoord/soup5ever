@@ -2,7 +2,7 @@
 //!
 //! Two things here go beyond `html5ever::parse_document`:
 //!
-//! * Source positions.  BeautifulSoup's html5lib builder records, for each
+//! * Source positions.  `BeautifulSoup`'s html5lib builder records, for each
 //!   tag, the line and column of html5lib's stream position when the element
 //!   was created: for an element created from a start tag, the column of the
 //!   tag's closing `>`; for elements implied by text, the end of that text.
@@ -50,9 +50,8 @@ impl TokenSink for Tap {
         if let Token::ParseError(_) = token {
             return TokenSinkResult::Continue;
         }
-        let sink = &self.tree_builder.sink;
-        if let Token::DoctypeToken(ref doctype) = token {
-            *sink.pending_doctype.borrow_mut() = Some((
+        if let Token::DoctypeToken(doctype) = &token {
+            self.tree_builder.sink.set_pending_doctype((
                 doctype.name.clone(),
                 doctype.public_id.clone(),
                 doctype.system_id.clone(),
@@ -62,7 +61,7 @@ impl TokenSink for Tap {
     }
 
     fn end(&self) {
-        self.tree_builder.end()
+        self.tree_builder.end();
     }
 
     fn adjusted_current_node_present_but_not_in_html_namespace(&self) -> bool {
@@ -71,11 +70,9 @@ impl TokenSink for Tap {
     }
 }
 
-pub enum Outcome {
-    Done(Arena),
-    /// The document declared a different encoding; re-parse with it.
-    Reparse(&'static Encoding),
-}
+/// The document declared a different encoding; re-parse with it.
+#[derive(Debug)]
+pub struct Reparse(pub &'static Encoding);
 
 /// Tracks line/column over the input exactly like html5lib's input stream:
 /// lines are 1-based, columns count code points since the last newline, and
@@ -88,8 +85,8 @@ struct Position {
 
 impl Position {
     fn advance(&mut self, bytes: &[u8]) {
-        for &b in bytes {
-            match b {
+        for &byte in bytes {
+            match byte {
                 b'\n' => {
                     if self.after_cr {
                         self.after_cr = false;
@@ -104,7 +101,7 @@ impl Position {
                     self.after_cr = true;
                 }
                 // UTF-8 continuation byte: same code point.
-                b if b & 0xC0 == 0x80 => {}
+                continuation if continuation & 0xC0 == 0x80 => {}
                 _ => {
                     self.col += 1;
                     self.after_cr = false;
@@ -114,7 +111,7 @@ impl Position {
     }
 
     /// html5lib reports the column of the last consumed character.
-    fn current(&self) -> (u32, i64) {
+    const fn current(&self) -> (u32, i64) {
         (self.line, self.col - 1)
     }
 }
@@ -125,7 +122,13 @@ pub struct Options {
     pub tentative_encoding: Option<&'static Encoding>,
 }
 
-pub fn parse(input: StrTendril, opts: &Options) -> Outcome {
+/// Parse a decoded document into an arena.
+///
+/// # Errors
+///
+/// `Reparse` if the document declares a different encoding while
+/// `opts.tentative_encoding` is set: decode again with that one.
+pub fn parse(input: &StrTendril, opts: &Options) -> Result<Arena, Reparse> {
     let tree_builder = TreeBuilder::new(
         Sink::new(),
         TreeBuilderOpts {
@@ -146,7 +149,6 @@ pub fn parse(input: StrTendril, opts: &Options) -> Outcome {
     );
     let mut tentative = opts.tentative_encoding;
     let queue = BufferQueue::default();
-    let sink = &tokenizer.sink.tree_builder.sink;
 
     macro_rules! run {
         () => {
@@ -161,7 +163,7 @@ pub fn parse(input: StrTendril, opts: &Options) -> Outcome {
                                 if new == current {
                                     tentative = None;
                                 } else {
-                                    return Outcome::Reparse(new);
+                                    return Err(Reparse(new));
                                 }
                             }
                         }
@@ -178,23 +180,27 @@ pub fn parse(input: StrTendril, opts: &Options) -> Outcome {
     };
     if opts.track_positions {
         let bytes = input.as_bytes();
-        let mut start = 0usize;
+        let mut start = 0;
         while start < bytes.len() {
             let mut end = bytes.len();
-            for (i, &b) in bytes.iter().enumerate().skip(start) {
-                if b == b'>' {
-                    end = i + 1;
+            for (index, &byte) in bytes.iter().enumerate().skip(start) {
+                if byte == b'>' {
+                    end = index + 1;
                     break;
                 }
                 // html5lib hands a text run to the tree builder as soon as it
                 // reaches one of these, before reading any further.
-                if matches!(b, b'<' | b'&' | b'\0') && i > start {
-                    end = i;
+                if matches!(byte, b'<' | b'&' | b'\0') && index > start {
+                    end = index;
                     break;
                 }
             }
             position.advance(&bytes[start..end]);
-            sink.position.set(position.current());
+            tokenizer
+                .sink
+                .tree_builder
+                .sink
+                .set_position(position.current());
             queue.push_back(input.subtendril(start as u32, (end - start) as u32));
             run!();
             start = end;
@@ -204,13 +210,18 @@ pub fn parse(input: StrTendril, opts: &Options) -> Outcome {
         run!();
     }
     if opts.track_positions {
-        sink.position.set(position.current());
+        tokenizer
+            .sink
+            .tree_builder
+            .sink
+            .set_position(position.current());
     }
     tokenizer.end();
-    Outcome::Done(tokenizer.sink.tree_builder.sink.finish())
+    Ok(tokenizer.sink.tree_builder.sink.finish())
 }
 
 /// Decode and parse a byte document.  Returns the tree and the encoding used.
+#[must_use]
 pub fn parse_bytes(
     bytes: &[u8],
     overrides: &[String],
@@ -226,9 +237,9 @@ pub fn parse_bytes(
             track_positions,
             tentative_encoding: (confidence == Confidence::Tentative).then_some(encoding),
         };
-        match parse(StrTendril::from_slice(&text), &opts) {
-            Outcome::Done(arena) => return (arena, encoding),
-            Outcome::Reparse(new) => {
+        match parse(&StrTendril::from_slice(&text), &opts) {
+            Ok(arena) => return (arena, encoding),
+            Err(Reparse(new)) => {
                 encoding = new;
                 confidence = Confidence::Certain;
             }
@@ -236,23 +247,34 @@ pub fn parse_bytes(
     }
 }
 
+/// Parse an already decoded document.
+///
+/// # Panics
+///
+/// Never: without a tentative encoding `parse` can't ask for a re-parse.
+#[must_use]
 pub fn parse_str(text: &str, track_positions: bool) -> Arena {
     let opts = Options {
         track_positions,
         tentative_encoding: None,
     };
-    match parse(StrTendril::from_slice(text), &opts) {
-        Outcome::Done(arena) => arena,
-        Outcome::Reparse(_) => unreachable!("str input never changes encoding"),
-    }
+    parse(&StrTendril::from_slice(text), &opts)
+        .expect("without a tentative encoding there is nothing to re-parse")
 }
 
 #[cfg(test)]
 mod tests {
+    use core::fmt::Write as _;
+    use core::iter::repeat_n;
+
     use super::{Arena, parse_bytes, parse_str};
     use crate::sink::{DOCUMENT, NodeData};
 
     /// A compact rendering of the arena: `name(children)`, `"text"`, etc.
+    #[expect(
+        clippy::use_debug,
+        reason = "Debug output quotes and escapes text unambiguously"
+    )]
     fn render(arena: &Arena, id: u32, out: &mut String) {
         for child in arena.children(id) {
             match &arena.nodes[child as usize].data {
@@ -263,8 +285,9 @@ mod tests {
                     ..
                 } => {
                     out.push_str(&name.local);
-                    for a in attrs {
-                        out.push_str(&format!(" {}={}", &*a.name.local, &*a.value));
+                    for attr in attrs {
+                        write!(out, " {}={}", &*attr.name.local, &*attr.value)
+                            .expect("writing to a String");
                     }
                     out.push('(');
                     render(arena, child, out);
@@ -275,19 +298,23 @@ mod tests {
                     }
                     out.push(')');
                 }
-                NodeData::Text(t) => out.push_str(&format!("{:?}", &**t)),
-                NodeData::Comment(t) => out.push_str(&format!("<!--{}-->", &**t)),
+                NodeData::Text(text) => write!(out, "{:?}", &**text).expect("writing to a String"),
+                NodeData::Comment(text) => {
+                    write!(out, "<!--{}-->", &**text).expect("writing to a String");
+                }
                 NodeData::Doctype {
                     name,
                     public_id,
                     system_id,
-                } => out.push_str(&format!(
+                } => write!(
+                    out,
                     "<!DOCTYPE {:?} {:?} {:?}>",
                     name.as_deref(),
                     public_id.as_deref(),
                     system_id.as_deref()
-                )),
-                NodeData::Document | NodeData::Fragment => unreachable!(),
+                )
+                .expect("writing to a String"),
+                NodeData::Document | NodeData::Fragment => {}
             }
         }
     }
@@ -304,11 +331,15 @@ mod tests {
         arena
             .nodes
             .iter()
-            .filter_map(|n| match &n.data {
+            .filter_map(|node| match &node.data {
                 NodeData::Element {
                     name, line, pos, ..
                 } => Some((name.local.to_string(), *line, *pos)),
-                _ => None,
+                NodeData::Document
+                | NodeData::Fragment
+                | NodeData::Doctype { .. }
+                | NodeData::Text(_)
+                | NodeData::Comment(_) => None,
             })
             .collect()
     }
@@ -384,10 +415,10 @@ mod tests {
         ] {
             let with = parse_str(html, true);
             let without = parse_str(html, false);
-            let (mut a, mut b) = (String::new(), String::new());
-            render(&with, DOCUMENT, &mut a);
-            render(&without, DOCUMENT, &mut b);
-            assert_eq!(a, b, "{html:?}");
+            let (mut chunked, mut whole) = (String::new(), String::new());
+            render(&with, DOCUMENT, &mut chunked);
+            render(&without, DOCUMENT, &mut whole);
+            assert_eq!(chunked, whole, "{html:?}");
         }
     }
 
@@ -411,28 +442,28 @@ mod tests {
 
     #[test]
     fn adoption_agency_clones_have_no_position() {
-        let p = positions("<b>1<p>2</b>3</p>");
+        let found = positions("<b>1<p>2</b>3</p>");
         // html, head, body, b, p, then the clone of b made at </b>; line 0
         // means "no position".
-        assert_eq!((p[5].0.as_str(), p[5].1), ("b", 0));
-        assert_ne!(p[3].1, 0);
+        assert_eq!((found[5].0.as_str(), found[5].1), ("b", 0));
+        assert_ne!(found[3].1, 0);
     }
 
     #[test]
     fn meta_charset_requests_reparse() {
         let bytes = b"<meta charset=iso-8859-2><p>\xb1";
-        let (arena, enc) = parse_bytes(bytes, &[], false);
-        assert_eq!(enc, encoding_rs::ISO_8859_2);
+        let (arena, declared) = parse_bytes(bytes, &[], false);
+        assert_eq!(declared, encoding_rs::ISO_8859_2);
         let mut out = String::new();
         render(&arena, DOCUMENT, &mut out);
         assert!(out.contains("\"\u{105}\""), "{out}");
         // Late declaration: beyond the prescan, found by the tree builder.
         let mut late = b"<!--".to_vec();
-        late.extend(std::iter::repeat_n(b'x', 1100));
+        late.extend(repeat_n(b'x', 1100));
         late.extend_from_slice(b"--><meta charset=iso-8859-2><p>\xb1");
         assert_eq!(parse_bytes(&late, &[], false).1, encoding_rs::ISO_8859_2);
         // A certain encoding (from the caller) is never changed.
-        let (_, enc) = parse_bytes(bytes, &["windows-1252".into()], false);
-        assert_eq!(enc, encoding_rs::WINDOWS_1252);
+        let (_, overridden) = parse_bytes(bytes, &["windows-1252".into()], false);
+        assert_eq!(overridden, encoding_rs::WINDOWS_1252);
     }
 }

@@ -239,10 +239,7 @@ def test_tree_modification_after_parse():
     doc.td.append(doc.new_tag("b"))
     doc.body.insert(0, "start")
     assert canon.linkage_problems(doc) == []
-    assert (
-        str(doc.body)
-        == "<body>start<table><tbody><tr><td>a<b></b></td></tr></tbody></table></body>"
-    )
+    assert str(doc.body) == "<body>start<table><tbody><tr><td>a<b></b></td></tr></tbody></table></body>"
 
 
 def test_pickle_and_copy():
@@ -275,9 +272,7 @@ def test_positions_match_html5lib():
 def test_positions_crlf_and_non_ascii():
     markup = "a\r\nb\rc<p>é\U0001f600<b>"
     ours, theirs = soup(markup), html5lib(markup)
-    assert (
-        (ours.b.sourceline, ours.b.sourcepos) == (theirs.b.sourceline, theirs.b.sourcepos) == (3, 8)
-    )
+    assert (ours.b.sourceline, ours.b.sourcepos) == (theirs.b.sourceline, theirs.b.sourcepos) == (3, 8)
 
 
 def test_positions_of_implied_elements():

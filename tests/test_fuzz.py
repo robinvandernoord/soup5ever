@@ -49,9 +49,7 @@ def test_fuzz(request):
     found = {small: i for i, small, _ in reversed(fuzz.run(seed, iterations, save=False))}
     new = sorted(set(found) - KNOWN)
     if new and classify.available():
-        new = [
-            m for m, verdict in zip(new, fuzz.triage(new), strict=True) if verdict != "html5lib bug"
-        ]
+        new = [m for m, verdict in zip(new, fuzz.triage(new), strict=True) if verdict != "html5lib bug"]
     for markup in new:
         fuzz.save_failure(markup)
     assert not new, "\n".join(f"seed={seed} iteration={found[m]}: {m!r}" for m in new)

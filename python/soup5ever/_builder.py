@@ -76,8 +76,7 @@ class HTML5everTreeBuilder(HTMLTreeBuilder):
         ):
             if value:
                 warnings.warn(
-                    f"You provided a value for {name}, but the html5ever tree builder "
-                    f"doesn't support {name}.",
+                    f"You provided a value for {name}, but the html5ever tree builder doesn't support {name}.",
                     stacklevel=3,
                 )
         DetectsXMLParsedAsHTML.warn_if_markup_looks_like_xml(markup, stacklevel=3)

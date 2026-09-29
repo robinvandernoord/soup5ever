@@ -309,10 +309,7 @@ def mutate(rng: random.Random, markup: str) -> str:
 SEEDS = [
     CASES[k]
     for k in sorted(CASES)
-    if k not in KNOWN_DIFFERENCES
-    and "select" not in CASES[k]
-    and "template" not in CASES[k]
-    and "ruby" not in CASES[k]
+    if k not in KNOWN_DIFFERENCES and "select" not in CASES[k] and "template" not in CASES[k] and "ruby" not in CASES[k]
 ]
 
 

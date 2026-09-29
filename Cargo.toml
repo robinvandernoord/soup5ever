@@ -29,7 +29,61 @@ strip = true        # Strip symbols from the binary
 # Python exception, while abort would kill the user's interpreter.
 
 [lints.rust]
-warnings = "deny"
+warnings = { level = "deny", priority = -1 }
+unknown_lints = "allow" # some allows below only exist in newer clippy versions
 
 [lints.clippy]
-all = { level = "deny", priority = -1 }
+# categories:
+correctness = { level = "deny", priority = 1 }
+suspicious = { level = "deny", priority = -1 }
+complexity = { level = "warn", priority = -1 }
+perf = { level = "warn", priority = -1 }
+style = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+restriction = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+# specific ones:
+## deny
+unwrap_used = "deny" # at least use .expect
+implicit_clone = "warn" # good to know when clones are happening
+
+## allow
+module_name_repetitions = "allow" # using venv_ in functions triggers this, annoying
+future_not_send = "allow" # idk how to fix this, tokio goes crazy
+struct_excessive_bools = "allow" # Clap args can just get lot of bools
+fn_params_excessive_bools = "allow" # Clap args can just get lot of bools
+cast_possible_wrap = "allow" #  the numbers in this program won't be very large so it's okay
+cast_possible_truncation = "allow" # the numbers in this program won't be very large so it's okay
+multiple_crate_versions = "allow" # some dependencies make this happen
+
+blanket_clippy_restriction_lints = "allow" # we'll disable everything we don't want below:
+single_call_fn = "allow" # # not everything should be one big function
+print_stdout = "allow" # it's a cli tool, printing is fine
+print_stderr = "allow" # eprintln is nice even for prd
+implicit_return = "allow" # conflicts with needless_return
+default_numeric_fallback = "allow" # why do 1_i32 if it's fine to let Rust figure out the types?
+question_mark_used = "allow" # it's a nice operator?
+missing_docs_in_private_items = "allow" # only docs for pub items is fine for now
+pattern_type_mismatch = "allow"  # rust understands the pattern match so idk why I would complicate it
+absolute_paths = "allow" # it's probably with good reason (e.g. so it's explitly using tokio::fs instead of std)
+missing_trait_methods = "allow" # optional default implementations are nice
+std_instead_of_alloc = "allow" # false flag for VecDeque
+arithmetic_side_effects = "allow" # I trust the math will keep mathing
+expect_used = "allow" # expect is only used when absolutely sure panic will not happen!
+let_underscore_must_use = "allow" # doing `let _` already says I explicitly don't care about the result!
+let_underscore_untyped = "allow" # doing `let _` already says I explicitly don't care about the result!
+non_ascii_literal = "allow" # unicode is king
+separated_literal_suffix = "allow" # otherwise it will complain about the opposite :(
+pub_with_shorthand = "allow" # otherwise it will complain about the opposite :(
+mod_module_files = "allow" # grouping mods like tests and 'commands' is useful
+unused_trait_names = "allow" # heh?
+arbitrary_source_item_ordering = "allow" # I prefer the current ordering over alphabetical.
+missing_inline_in_public_items = "allow" # only relevant for library crates, not end-product cli tools
+
+## allow (soup5ever)
+indexing_slicing = "allow" # arena node ids are indices by construction; byte scanners index checked positions
+missing_asserts_for_indexing = "allow" # same
+as_conversions = "allow" # u32 node ids <-> usize indices, u8/char in the byte scanners
+exhaustive_structs = "allow" # internal crate, nothing is exported to other Rust code
+exhaustive_enums = "allow" # same
