@@ -12,3 +12,4 @@ __pycache__/
 /tests/fuzz_failures/*.html
 !/tests/fuzz_failures/.gitkeep
 /tests/data/html5lib-tests/
+/benchmarks/results/

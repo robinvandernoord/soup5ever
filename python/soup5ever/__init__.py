@@ -1,6 +1,6 @@
 """A BeautifulSoup tree builder backed by Rust's html5ever HTML5 parser.
 
-Importing this module registers the ``"html5ever"`` parser feature::
+Importing this module registers the `"html5ever"` parser feature:
 
     from bs4 import BeautifulSoup
     import soup5ever

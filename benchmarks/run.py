@@ -1,11 +1,12 @@
 """Benchmark BeautifulSoup(markup, "html5ever") against BeautifulSoup(markup, "html5lib").
 
-    python -m benchmarks.run                 # all documents
-    python -m benchmarks.run --quick         # fewer repetitions
-    python -m benchmarks.run --json out.json
+    pip install . html5lib
+    python benchmarks/run.py                 # all documents
+    python benchmarks/run.py --quick         # fewer repetitions
+    python benchmarks/run.py --json out.json
 
-What is timed is the call users make, ``BeautifulSoup(markup, parser)``,
-on a ``str`` that is already in memory: no file I/O, imports or interpreter
+What is timed is the call users make, `BeautifulSoup(markup, parser)`,
+on a `str` that is already in memory: no file I/O, imports or interpreter
 start-up. For each document and parser the call is repeated in several
 rounds (after one warm-up call); the reported figure is the median of the
 per-call round times, with the minimum alongside. The garbage collector
@@ -14,9 +15,9 @@ garbage isn't billed to the next.
 
 A breakdown shows where the time goes:
 
-* html5ever: Rust parsing alone (``soup5ever._soup5ever._parse_only``) vs
+* html5ever: Rust parsing alone (`soup5ever._soup5ever._parse_only`) vs
   the full call, whose remainder is creating BeautifulSoup objects;
-* html5lib: html5lib's own parser with its native ``etree`` tree builder vs
+* html5lib: html5lib's own parser with its native `etree` tree builder vs
   the full BeautifulSoup call, whose remainder is BS4's html5lib adapter.
 """
 
@@ -36,9 +37,8 @@ import html5lib
 from bs4 import BeautifulSoup
 
 import soup5ever
+from documents import BENCHMARKS  # benchmarks/documents.py, next to this script
 from soup5ever import _soup5ever
-
-from .documents import BENCHMARKS
 
 warnings.simplefilter("ignore")
 

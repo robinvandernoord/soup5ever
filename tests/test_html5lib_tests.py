@@ -14,7 +14,7 @@ has no fragment parsing):
   BS4's adapter has a few bugs of its own), or the case is listed in
   `SPEC_FAILURES`.
 
-Run ``python scripts/fetch_html5lib_tests.py`` to download the corpus; the
+Run `python scripts/fetch_html5lib_tests.py` to download the corpus; the
 tests are skipped without it.
 """
 

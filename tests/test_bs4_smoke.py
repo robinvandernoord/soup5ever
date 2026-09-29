@@ -1,14 +1,14 @@
 """BeautifulSoup's own tree-builder contract, run against soup5ever.
 
-BS4's ``TestHTML5LibBuilder`` is ``HTML5TreeBuilderSmokeTest`` (the suite
+BS4's `TestHTML5LibBuilder` is `HTML5TreeBuilderSmokeTest` (the suite
 every HTML5 tree builder is expected to pass, itself built on
-``HTMLTreeBuilderSmokeTest``) plus the html5lib builder's own tests, many of
+`HTMLTreeBuilderSmokeTest`) plus the html5lib builder's own tests, many of
 which exercise html5lib's tree fix-ups: reparenting, foster parenting,
-cloning. It also carries html5lib's documented opt-outs (``parse_only``,
+cloning. It also carries html5lib's documented opt-outs (`parse_only`,
 string container classes), which soup5ever shares. Running that class with
 soup5ever as the builder checks soup5ever against exactly the contract
 html5lib is held to. The tests are vendored from the BeautifulSoup sdist by
-``scripts/sync_bs4_tests.py``.
+`scripts/sync_bs4_tests.py`.
 
 The only overrides are tests whose expected strings name the html5lib
 builder itself.

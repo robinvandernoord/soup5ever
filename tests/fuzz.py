@@ -2,7 +2,7 @@
 
     python -m tests.fuzz --iterations 20000 --seed 1
 
-Every input is derived from ``(seed, iteration)``, so a failure is
+Every input is derived from `(seed, iteration)`, so a failure is
 reproducible from the two numbers printed with it. Mismatches are minimized
 (tests/minimize.py), de-duplicated and saved under tests/fuzz_failures/.
 

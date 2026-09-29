@@ -1,8 +1,8 @@
 """Vendor BeautifulSoup's tree-builder test infrastructure into tests/vendor.
 
-soup5ever runs BeautifulSoup's own ``HTML5TreeBuilderSmokeTest`` (and the
+soup5ever runs BeautifulSoup's own `HTML5TreeBuilderSmokeTest` (and the
 tests of BS4's html5lib builder) against the html5ever builder. Those tests
-live in ``bs4/tests``, which is only shipped in the BeautifulSoup sdist, so
+live in `bs4/tests`, which is only shipped in the BeautifulSoup sdist, so
 this script downloads the sdist and copies the relevant files.
 
     python scripts/sync_bs4_tests.py            # version of the installed bs4

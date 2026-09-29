@@ -1,8 +1,8 @@
 """Deterministic benchmark (and test) documents.
 
 Generated rather than downloaded, so the benchmark is reproducible and the
-repository carries no third-party content. Each generator takes a ``scale``
-and returns ``str``; the same seed always gives the same document.
+repository carries no third-party content. Each generator takes a `scale`
+and returns `str`; the same seed always gives the same document.
 """
 
 from __future__ import annotations

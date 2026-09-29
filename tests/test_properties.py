@@ -1,7 +1,7 @@
 """Property tests on soup5ever's own output (no reference parser needed).
 
 Inputs come from the fuzzer's HTML token grammar (tests/fuzz.py), driven by
-Hypothesis. ``derandomize=True`` keeps runs reproducible and fast enough for
+Hypothesis. `derandomize=True` keeps runs reproducible and fast enough for
 the ordinary test suite; the heavier differential fuzzing is opt-in.
 """
 

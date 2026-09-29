@@ -1,4 +1,4 @@
-"""Reader for html5lib-tests tree-construction ``.dat`` files."""
+"""Reader for html5lib-tests tree-construction `.dat` files."""
 
 from __future__ import annotations
 

@@ -73,7 +73,7 @@ def _format_attr(name) -> str:
 def to_test_format(soup: BeautifulSoup) -> str:
     """Serialize like html5lib-tests' expected "#document" output.
 
-    Use a soup parsed with ``multi_valued_attributes=None`` so attribute
+    Use a soup parsed with `multi_valued_attributes=None` so attribute
     values are the raw strings.
     """
     lines: list[str] = []
@@ -166,8 +166,8 @@ def html5lib_adapter_fixed():
     """Temporarily fix the one BS4 html5lib-adapter bug that affects trees.
 
     html5lib's Noah's Ark clause decides whether two formatting elements are
-    "the same" with ``node1.attributes == node2.attributes``. BS4's adapter
-    returns a fresh ``AttrList`` (which has no ``__eq__``) on every access,
+    "the same" with `node1.attributes == node2.attributes`. BS4's adapter
+    returns a fresh `AttrList` (which has no `__eq__`) on every access,
     so the comparison is always False. With this patch the html5lib builder
     is a clean reference for inputs that happen to trigger that bug.
     """

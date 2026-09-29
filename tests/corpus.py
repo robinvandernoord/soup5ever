@@ -1,6 +1,6 @@
 """Hand-written differential corpus, grouped by HTML5 trouble spot.
 
-Every entry is parsed with both ``html5lib`` and ``html5ever`` and the
+Every entry is parsed with both `html5lib` and `html5ever` and the
 canonical trees compared (see test_differential.py). Entries whose trees are
 *expected* to differ are listed in `KNOWN_DIFFERENCES` with a
 classification; everything else must match exactly.

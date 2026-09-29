@@ -1,7 +1,7 @@
 """html5lib's own (minidom) tree in html5lib-tests format.
 
 Used to tell apart html5lib *parser* behavior from quirks of BeautifulSoup's
-html5lib *adapter* (``bs4.builder._html5lib``) when classifying differences.
+html5lib *adapter* (`bs4.builder._html5lib`) when classifying differences.
 """
 
 from __future__ import annotations

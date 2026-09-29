@@ -1,4 +1,4 @@
-"""The BeautifulSoup ``TreeBuilder`` for html5ever."""
+"""The BeautifulSoup `TreeBuilder` for html5ever."""
 
 from __future__ import annotations
 
@@ -32,18 +32,18 @@ __all__ = ["HTML5everTreeBuilder", "register"]
 
 
 class HTML5everTreeBuilder(HTMLTreeBuilder):
-    """Build a BeautifulSoup tree with `html5ever <https://github.com/servo/html5ever>`_.
+    """Build a BeautifulSoup tree with html5ever (https://github.com/servo/html5ever).
 
     The whole document is parsed in Rust (with the GIL released); the
     finished tree is then turned into ordinary BeautifulSoup objects in a
-    single pass. The behavioral reference is BeautifulSoup's ``html5lib``
+    single pass. The behavioral reference is BeautifulSoup's `html5lib`
     tree builder, and like it this builder:
 
-    * does not support ``parse_only`` (a warning is issued and the whole
+    * does not support `parse_only` (a warning is issued and the whole
       document is parsed);
     * puts every string in a plain `NavigableString` (no `Script`,
       `Stylesheet`, ... subclasses);
-    * records ``sourceline``/``sourcepos`` for each tag.
+    * records `sourceline`/`sourcepos` for each tag.
     """
 
     NAME = "html5ever"
@@ -126,11 +126,11 @@ class HTML5everTreeBuilder(HTMLTreeBuilder):
 
 
 def _encoding_labels(label: str | None) -> list[str]:
-    """Candidate WHATWG labels for a user-supplied ``from_encoding``.
+    """Candidate WHATWG labels for a user-supplied `from_encoding`.
 
     The label is tried as given first (so it means what it means to
     html5lib); if it isn't a WHATWG label, Python's canonical codec name is
-    tried as well, so that e.g. ``"latin-1"`` or ``"utf_8"`` still work.
+    tried as well, so that e.g. `"latin-1"` or `"utf_8"` still work.
     """
     if not label:
         return []
@@ -142,7 +142,7 @@ def _encoding_labels(label: str | None) -> list[str]:
     return labels
 
 
-#: Attribute dict classes whose ``__setitem__`` stores a str value unchanged,
+#: Attribute dict classes whose `__setitem__` stores a str value unchanged,
 #: so the extension may fill them with plain dict operations.
 _PLAIN_ATTRIBUTE_DICTS = (dict, AttributeDict, HTMLAttributeDict)
 
@@ -152,13 +152,13 @@ _EXCLUSIVE_FEATURES = frozenset({HTML5everTreeBuilder.NAME, "soup5ever"})
 def register(registry: TreeBuilderRegistry = builder_registry) -> None:
     """Register `HTML5everTreeBuilder` with a BeautifulSoup builder registry.
 
-    Called when ``soup5ever`` is imported; calling it again is harmless.
+    Called when `soup5ever` is imported; calling it again is harmless.
 
-    ``TreeBuilderRegistry.register`` gives the newest builder the highest
+    `TreeBuilderRegistry.register` gives the newest builder the highest
     priority for *every* feature it lists, which would make importing
-    soup5ever silently change what ``BeautifulSoup(markup, "html5")`` or
-    ``BeautifulSoup(markup, "html")`` mean. Instead, this builder is put first
-    only for its own names (``"html5ever"``, ``"soup5ever"``) and last for
+    soup5ever silently change what `BeautifulSoup(markup, "html5")` or
+    `BeautifulSoup(markup, "html")` mean. Instead, this builder is put first
+    only for its own names (`"html5ever"`, `"soup5ever"`) and last for
     the generic ones, so they keep selecting whichever builder they selected
     before, and fall back to html5ever only when nothing else provides them.
     """
