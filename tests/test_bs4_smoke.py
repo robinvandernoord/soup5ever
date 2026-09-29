@@ -20,7 +20,7 @@ import pytest
 from bs4 import BeautifulSoup
 from bs4.filter import SoupStrainer
 
-from soup5ever import HTML5everTreeBuilder
+from soup5ever import HTML5everExperimentalTreeBuilder, HTML5everTreeBuilder
 
 from .vendor.bs4_tests import test_html5lib as upstream
 
@@ -37,7 +37,7 @@ class TestAsHTML5Lib(upstream.TestHTML5LibBuilder):
         markup = "<p>A <b>bold</b> statement.</p>"
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            soup = BeautifulSoup(markup, "html5ever", parse_only=strainer)
+            soup = BeautifulSoup(markup, self.default_builder.NAME, parse_only=strainer)
         assert soup.decode() == self.document_for(markup)
         [warning] = w
         assert warning.filename == __file__
@@ -56,3 +56,11 @@ class TestAsHTML5Lib(upstream.TestHTML5LibBuilder):
         assert str(warning.message) == (
             f"You provided a value for {name}, but the html5ever tree builder doesn't support {name}."
         )
+
+
+class TestAsHTML5LibExperimental(TestAsHTML5Lib):
+    """The same tests with `html5ever-experimental` (direct construction)."""
+
+    @property
+    def default_builder(self):
+        return HTML5everExperimentalTreeBuilder

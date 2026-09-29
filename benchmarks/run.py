@@ -1,5 +1,11 @@
 """Benchmark BeautifulSoup(markup, "html5ever") against BeautifulSoup(markup, "html5lib").
 
+"html5ever-experimental" is timed alongside. Both builders parse with html5ever
+and build the same trees; the experimental one builds the BS4 objects without
+their constructors. Its "speedup" is against html5lib, like the standard
+builder's; "vs standard" is its time relative to the standard "html5ever"
+builder (-24% = 24% less time).
+
     uv pip install -e .[dev]
     python benchmarks/run.py                 # all documents
     python benchmarks/run.py --quick         # fewer repetitions
@@ -126,6 +132,7 @@ def main() -> None:
             steps = {
                 "html5lib": (lambda m=markup: BeautifulSoup(m, "html5lib"), budget),
                 "html5ever": (lambda m=markup: BeautifulSoup(m, "html5ever"), budget),
+                "html5ever-experimental": (lambda m=markup: BeautifulSoup(m, "html5ever-experimental"), budget),
                 "Rust parse only": (lambda m=markup: _soup5ever._parse_only(m), budget / 3),
                 "html5lib parser only": (lambda m=markup: html5lib.parse(m, treebuilder="etree"), budget),
             }
@@ -143,6 +150,8 @@ def main() -> None:
                     "html5lib_min": timings["html5lib"][1],
                     "html5ever": timings["html5ever"][0],
                     "html5ever_min": timings["html5ever"][1],
+                    "experimental": timings["html5ever-experimental"][0],
+                    "experimental_min": timings["html5ever-experimental"][1],
                     "rust_parse": timings["Rust parse only"][0],
                     "html5lib_parser_only": timings["html5lib parser only"][0],
                 }
@@ -157,13 +166,28 @@ def main() -> None:
             fmt(row["html5lib"]),
             fmt(row["html5ever"]),
             f"{row['html5lib'] / row['html5ever']:.1f}x",
+            fmt(row["experimental"]),
+            f"{row['html5lib'] / row['experimental']:.1f}x",
+            f"{row['experimental'] / row['html5ever'] - 1:+.0%}",
             f"{fmt(row['rust_parse'])} ({row['rust_parse'] / row['html5ever']:.0%})",
             f"{fmt(row['html5lib_parser_only'])} ({row['html5lib_parser_only'] / row['html5lib']:.0%})",
         ]
         for row in results
     ]
-    headers = ["document", "size", "nodes", "html5lib", "html5ever", "speedup", "Rust parse", "html5lib parser"]
-    print(tabulate(rows, headers=headers, tablefmt="rounded_outline", colalign=["left"] + ["right"] * 7))
+    headers = [
+        "document",
+        "size",
+        "nodes",
+        "html5lib",
+        "html5ever",
+        "speedup",
+        "experimental",
+        "speedup",
+        "vs standard",
+        "Rust parse",
+        "html5lib parser",
+    ]
+    print(tabulate(rows, headers=headers, tablefmt="rounded_outline", colalign=["left"] + ["right"] * 10))
     if args.json:
         with open(args.json, "w") as f:
             json.dump({"environment": env, "results": results}, f, indent=2)

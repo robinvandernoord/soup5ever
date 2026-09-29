@@ -57,6 +57,31 @@ Differences from html5lib:
 Shared with html5lib: no `parse_only`, no `Script`/`Stylesheet` string subclasses, no
 `<selectedcontent>` cloning.
 
+## Experimental: `html5ever-experimental`
+
+```python
+soup = BeautifulSoup(html, "html5ever-experimental")
+```
+
+Builds the same trees as `"html5ever"`, 10–30% faster, by creating BeautifulSoup's objects
+without running their constructors (`Tag.__init__`, `NavigableString.__new__`): the extension
+sets the attributes those would set, once each and already linked into the tree.
+
+That relies on BeautifulSoup internals, verified against beautifulsoup4 4.13–4.15:
+
+- The first parse checks that the installed BeautifulSoup still sets exactly the attributes
+  soup5ever expects. If not, it warns once and falls back to the regular construction.
+- Custom `element_classes` with their own `__init__`/`__new__`/`__setattr__`/`setup`,
+  `__getattribute__` or properties for the attributes BS4 sets, `attribute_dict_class`es with their own `__setitem__`, and builder subclasses that override
+  how tags are set up get the regular construction automatically.
+- What it can't detect: a BeautifulSoup release that keeps those attributes but changes what
+  they mean.
+
+The test suite compares every object's full state (`vars()` in order, value types, links)
+with `"html5ever"`'s over the whole corpus, the html5lib-tests and the fuzz inputs, and runs
+BS4's own builder tests against it. It is never selected through the generic `"html5"` or
+`"html"` features.
+
 ## Benchmarks
 
 `BeautifulSoup(markup, parser)` on an in-memory `str`, median of 7 rounds, 4-vCPU Linux VM,
@@ -72,7 +97,8 @@ CPython 3.11:
 | SVG/MathML-heavy     | 323 ms   | 51 ms     | 6.4x    |
 
 Parsing in Rust is 14–32% of soup5ever's time; the rest is BeautifulSoup's own object
-constructors. To reproduce:
+constructors. `html5ever-experimental` skips most of the constructor work (it has its own
+column in the benchmark output). To reproduce:
 
 ```
 uv pip install -e .[dev]
