@@ -14,7 +14,7 @@ has no fragment parsing):
   BS4's adapter has a few bugs of its own), or the case is listed in
   `SPEC_FAILURES`.
 
-Run `python scripts/fetch_html5lib_tests.py` to download the corpus; the
+Run `python scripts/fetch_upstream_tests.py` to download the corpus; the
 tests are skipped without it.
 """
 
@@ -27,15 +27,15 @@ from bs4 import BeautifulSoup
 
 import soup5ever  # noqa: F401
 
-from . import canon, html5lib_dat, html5lib_native
+from . import canon, html5lib_dat
 
 CASES = [case for case in html5lib_dat.all_cases() if case.applicable]
 
 pytestmark = pytest.mark.skipif(
-    not CASES, reason="html5lib-tests not downloaded (scripts/fetch_html5lib_tests.py)"
+    not CASES, reason="html5lib-tests not downloaded (scripts/fetch_upstream_tests.py)"
 )
 
-#: Cases where soup5ever's tree doesn't match the spec expectation.
+# Cases where soup5ever's tree doesn't match the spec expectation.
 SPEC_FAILURES = {
     # html5ever only runs "maybe clone an option into selectedcontent" on an
     # explicit </option> (servo/html5ever#712), and soup5ever doesn't
@@ -81,31 +81,3 @@ def test_differential(case):
     # wrong.
     assert canon.to_test_format(ours) == case.document
     assert canon.to_test_format(theirs) != case.document
-
-
-def classify():
-    """Summary used for the README: counts per category."""
-    counts = {
-        "identical": 0,
-        "html5lib parser differs from spec": 0,
-        "BS4 html5lib adapter differs from html5lib": 0,
-        "soup5ever differs from spec": 0,
-    }
-    for case in CASES:
-        ours = parse(case.data, "html5ever")
-        theirs = parse(case.data, "html5lib")
-        if canon.canonical(ours) == canon.canonical(theirs):
-            counts["identical"] += 1
-        elif canon.to_test_format(ours) != case.document:
-            counts["soup5ever differs from spec"] += 1
-        elif html5lib_native.to_test_format(case.data) == case.document:
-            counts["BS4 html5lib adapter differs from html5lib"] += 1
-        else:
-            counts["html5lib parser differs from spec"] += 1
-    return counts
-
-
-if __name__ == "__main__":  # python -m tests.test_html5lib_tests
-    print(len(CASES), "applicable cases")
-    for name, count in classify().items():
-        print(f"{count:5d}  {name}")

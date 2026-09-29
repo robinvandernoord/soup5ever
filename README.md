@@ -39,7 +39,7 @@ disagree, soup5ever follows the standard.
 - html5lib-tests tree construction: 1,588/1,592 match the spec. Against html5lib the trees
   are identical in 1,417 cases; the other 175 are classified automatically (167 html5lib
   behind the spec, 4 BS4 html5lib-adapter bugs, 4 `<selectedcontent>` misses both share).
-- 182 hand-written differential cases and ~23k fuzz inputs (triaged with Chromium): every
+- 182 targeted differential cases and ~23k fuzz inputs (triaged with Chromium): every
   remaining difference is an html5lib bug or listed below.
 
 Differences from html5lib:
@@ -75,23 +75,26 @@ Parsing in Rust is 14–32% of soup5ever's time; the rest is BeautifulSoup's own
 constructors. To reproduce:
 
 ```
-pip install . html5lib
+uv pip install . html5lib
 python benchmarks/run.py
 ```
 
 ## Development
 
 ```
-python -m venv .venv && source .venv/bin/activate
-pip install -U pip maturin
-maturin develop --release -E dev
-python scripts/fetch_html5lib_tests.py   # optional: html5lib-tests corpus
+uv venv venv && source venv/bin/activate
+uv pip install -e .[dev]                # builds the Rust extension
+python scripts/fetch_upstream_tests.py  # BS4's builder tests + html5lib-tests
 pytest
 ```
 
-Lint with `ruff check . && ruff format --check .` and
-`cargo fmt --check && cargo clippy --all-targets -- -D warnings`. Differential fuzzing is
-separate: `python -m tests.fuzz --iterations 20000`.
+Re-run `uv pip install -e .[dev]` after changing Rust code.
+
+```
+edwh fmt && edwh lint                   # Python (ruff)
+cargo fmt && cargo clippy --all-targets -- -D warnings
+pytest tests/test_fuzz.py --fuzz 20000  # differential fuzzing, needs Chromium
+```
 
 ## License
 

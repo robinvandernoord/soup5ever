@@ -221,15 +221,15 @@ def _bad_document() -> str:
 
 CASES["bs4-bad-document"] = _bad_document()
 
-#: case id -> (classification, explanation)
-#:
-#: Classifications (see README "Known differences"):
-#: * "intentional"  - soup5ever deliberately behaves differently
-#: * "html5lib"     - html5lib-python deviates from the (current) HTML
-#:                    standard; soup5ever follows the standard
-#: * "bs4-adapter"  - html5lib itself is right, but BS4's html5lib adapter
-#:                    (bs4.builder._html5lib) breaks it; soup5ever is right
-#: * "irrelevant"   - outside the compatibility contract
+# case id -> (classification, explanation)
+#
+# Classifications:
+# * "intentional"  - soup5ever deliberately behaves differently
+# * "html5lib"     - html5lib-python deviates from the (current) HTML
+#                    standard; soup5ever follows the standard
+# * "bs4-adapter"  - html5lib itself is right, but BS4's html5lib adapter
+#                    (bs4.builder._html5lib) breaks it; soup5ever is right
+# * "irrelevant"   - outside the compatibility contract
 _NOT_SPECIAL = (
     "html5lib-python doesn't treat <main>/<summary> as special elements, so the"
     " adoption agency algorithm doesn't use them as the furthest block"

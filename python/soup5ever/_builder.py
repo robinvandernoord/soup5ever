@@ -6,6 +6,7 @@ import codecs
 import gc
 import warnings
 from collections.abc import Iterable, Iterator
+from typing import TYPE_CHECKING
 
 from bs4.builder import (
     HTML,
@@ -28,6 +29,9 @@ from bs4.element import (
 
 from . import _soup5ever
 
+if TYPE_CHECKING:
+    from bs4._typing import _Encoding, _Encodings, _RawMarkup
+
 __all__ = ["HTML5everTreeBuilder", "register"]
 
 
@@ -49,9 +53,9 @@ class HTML5everTreeBuilder(HTMLTreeBuilder):
     NAME = "html5ever"
     ALTERNATE_NAMES = ["soup5ever"]
 
-    #: The html5ever feature names are claimed outright. The generic ones
-    #: are advertised (so lookups for them can find this builder) but
-    #: registered at the lowest priority; see `register`.
+    # The html5ever feature names are claimed outright. The generic ones are
+    # advertised (so lookups for them can find this builder) but registered
+    # at the lowest priority; see `register`.
     features: Iterable[str] = [NAME, "soup5ever", PERMISSIVE, HTML_5, HTML]
 
     TRACKS_LINE_NUMBERS = True
@@ -60,11 +64,11 @@ class HTML5everTreeBuilder(HTMLTreeBuilder):
 
     def prepare_markup(
         self,
-        markup,
-        user_specified_encoding=None,
-        document_declared_encoding=None,
-        exclude_encodings=None,
-    ) -> Iterator[tuple]:
+        markup: _RawMarkup,
+        user_specified_encoding: _Encoding | None = None,
+        document_declared_encoding: _Encoding | None = None,
+        exclude_encodings: _Encodings | None = None,
+    ) -> Iterator[tuple[_RawMarkup, _Encoding | None, _Encoding | None, bool]]:
         self.user_specified_encoding = user_specified_encoding
         for value, name in (
             (document_declared_encoding, "document_declared_encoding"),
@@ -79,7 +83,7 @@ class HTML5everTreeBuilder(HTMLTreeBuilder):
         DetectsXMLParsedAsHTML.warn_if_markup_looks_like_xml(markup, stacklevel=3)
         yield (markup, None, None, False)
 
-    def feed(self, markup) -> None:
+    def feed(self, markup: _RawMarkup) -> None:
         soup = self.soup
         assert soup is not None
         if soup.parse_only is not None:
@@ -142,11 +146,11 @@ def _encoding_labels(label: str | None) -> list[str]:
     return labels
 
 
-#: Attribute dict classes whose `__setitem__` stores a str value unchanged,
-#: so the extension may fill them with plain dict operations.
+# Attribute dict classes whose `__setitem__` stores a str value unchanged, so
+# the extension may fill them with plain dict operations.
 _PLAIN_ATTRIBUTE_DICTS = (dict, AttributeDict, HTMLAttributeDict)
 
-_EXCLUSIVE_FEATURES = frozenset({HTML5everTreeBuilder.NAME, "soup5ever"})
+_EXCLUSIVE_FEATURES = frozenset((HTML5everTreeBuilder.NAME, "soup5ever"))
 
 
 def register(registry: TreeBuilderRegistry = builder_registry) -> None:

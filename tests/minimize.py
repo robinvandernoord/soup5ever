@@ -1,14 +1,11 @@
 """Delta-debugging minimizer for differential mismatches.
 
-    python -m tests.minimize FILE        # minimize the markup in FILE
-
 Shrinks the input while BeautifulSoup(markup, "html5ever") and
 BeautifulSoup(markup, "html5lib") still produce different canonical trees.
 """
 
 from __future__ import annotations
 
-import sys
 import warnings
 
 from bs4 import BeautifulSoup
@@ -45,8 +42,3 @@ def minimize(markup: str, predicate=differs) -> str:
                 break
             n = min(n * 2, len(markup))
     return markup
-
-
-if __name__ == "__main__":
-    with open(sys.argv[1], encoding="utf-8") as f:
-        print(repr(minimize(f.read())))

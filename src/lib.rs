@@ -12,8 +12,11 @@ pub mod encoding;
 pub mod sink;
 
 use pyo3::exceptions::PyTypeError;
-use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyString};
+use pyo3::types::{
+    PyAnyMethods, PyBytes, PyBytesMethods, PyModule, PyModuleMethods, PyString, PyStringMethods,
+    PyTypeMethods,
+};
+use pyo3::{Bound, PyAny, PyResult, Python, pyfunction, pymodule, wrap_pyfunction};
 
 /// Carries the arena out of `Python::detach`.
 ///

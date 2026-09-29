@@ -14,7 +14,7 @@
 //! validity check instead.  A tentative encoding can later be replaced when
 //! the tree builder sees a `<meta charset>` (see `driver.rs`).
 
-use encoding_rs::{Encoding, UTF_16BE, UTF_16LE, UTF_8, WINDOWS_1252, X_USER_DEFINED};
+use encoding_rs::{Encoding, UTF_8, UTF_16BE, UTF_16LE, WINDOWS_1252, X_USER_DEFINED};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Confidence {
@@ -145,11 +145,11 @@ fn meta(b: &[u8], pos: &mut usize) -> Option<&'static Encoding> {
                 }
             }
             b"content" => {
-                if charset.is_none() {
-                    if let Some(enc) = extract_from_content(&value) {
-                        charset = Some(enc);
-                        need_pragma = Some(true);
-                    }
+                if charset.is_none()
+                    && let Some(enc) = extract_from_content(&value)
+                {
+                    charset = Some(enc);
+                    need_pragma = Some(true);
                 }
             }
             b"charset" => {
@@ -268,7 +268,7 @@ fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{Confidence, UTF_8, WINDOWS_1252, prescan, sniff};
     use encoding_rs::{ISO_8859_2, SHIFT_JIS};
 
     #[test]

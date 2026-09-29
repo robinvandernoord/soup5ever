@@ -12,11 +12,10 @@
 use std::collections::HashMap;
 
 use html5ever::{LocalName, Namespace, QualName};
-use pyo3::intern;
-use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList, PyString, PyTuple};
+use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods, PyString, PyTuple};
+use pyo3::{Bound, FromPyObject, PyAny, PyResult, Python, intern};
 
-use crate::sink::{Arena, NodeData, DOCUMENT, NONE};
+use crate::sink::{Arena, DOCUMENT, NONE, NodeData};
 
 /// The Python classes the conversion instantiates, passed from Python as a
 /// dict (see `HTML5everTreeBuilder.feed`).

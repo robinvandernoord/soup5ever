@@ -1,9 +1,8 @@
-"""Differential fuzzing: html5ever vs html5lib on generated and mutated HTML.
+"""Differential fuzzing helpers: html5ever vs html5lib on generated HTML.
 
-    python -m tests.fuzz --iterations 20000 --seed 1
-
-Every input is derived from `(seed, iteration)`, so a failure is
-reproducible from the two numbers printed with it. Mismatches are minimized
+Run with `pytest --fuzz 20000 [--fuzz-seed 7]` (tests/test_fuzz.py). Every
+input is derived from `(seed, iteration)`, so a failure is reproducible
+from the two numbers reported with it. Mismatches are minimized
 (tests/minimize.py), de-duplicated and saved under tests/fuzz_failures/.
 
 The first oracle is BeautifulSoup's html5lib builder with its Noah's Ark
@@ -12,15 +11,11 @@ behind the HTML standard in many places, so the generator avoids the areas
 listed in `AVOIDED`, and every remaining mismatch is triaged with Chromium's
 parser (tests/oracle) when Node.js/Playwright/Chromium are available: only
 mismatches where Chromium does *not* side with soup5ever count as soup5ever
-bugs, and make the command exit non-zero. Without Chromium, every mismatch
-is reported for manual triage.
-
-Fuzzing is not part of the normal test run.
+bugs. The fuzz test is skipped when Chromium isn't available.
 """
 
 from __future__ import annotations
 
-import argparse
 import hashlib
 import pathlib
 import random
@@ -36,9 +31,9 @@ from .minimize import minimize
 
 FAILURES = pathlib.Path(__file__).parent / "fuzz_failures"
 
-#: Areas where html5lib-python 1.1 is known to be behind the HTML standard
-#: (tests/test_html5lib_tests.py verifies each of these against the spec
-#: corpus). Generated input stays out of them so mismatches mean bugs.
+# Areas where html5lib-python 1.1 is known to be behind the HTML standard
+# (tests/test_html5lib_tests.py verifies each of these against the spec
+# corpus). Generated input stays out of them so mismatches mean bugs.
 AVOIDED = (
     "select (2025 content model changes)",
     "ruby rb/rtc",
@@ -377,50 +372,17 @@ def run(seed: int, iterations: int, save: bool = True) -> list[tuple[int, str, s
     return failures
 
 
-def triage(inputs: list[str]) -> list[str] | None:
-    """Chromium's verdict for each input, or None if Chromium isn't available."""
-    try:
-        from .oracle.classify import chromium, trees
+def triage(inputs: list[str]) -> list[str]:
+    """Chromium's verdict for each input (see tests/oracle)."""
+    from .oracle.classify import chromium, trees
 
-        results = chromium(inputs)
-    except Exception as exc:  # noqa: BLE001 - optional tooling
-        print(f"(Chromium oracle unavailable: {exc.__class__.__name__}; not triaging)")
-        return None
     verdicts = []
-    for markup, browser in zip(inputs, results, strict=True):
+    for markup, browser in zip(inputs, chromium(inputs), strict=True):
         ours, theirs = trees(markup)
         if ours == browser:
             verdicts.append("html5lib bug")
         elif theirs == browser:
-            verdicts.append("SOUP5EVER BUG")
+            verdicts.append("soup5ever bug")
         else:
             verdicts.append("unclear (all differ)")
     return verdicts
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--seed", type=int, default=1)
-    parser.add_argument("--iterations", type=int, default=5000)
-    parser.add_argument("--no-save", action="store_true")
-    parser.add_argument("--no-triage", action="store_true")
-    args = parser.parse_args()
-    failures = run(args.seed, args.iterations, save=not args.no_save)
-    distinct: dict[str, tuple[int, str]] = {}
-    for i, small, difference in failures:
-        distinct.setdefault(small, (i, difference))
-    verdicts = None if args.no_triage or not distinct else triage(list(distinct))
-    bugs = 0
-    for n, (small, (i, difference)) in enumerate(distinct.items()):
-        verdict = verdicts[n] if verdicts else "untriaged"
-        bugs += verdict != "html5lib bug"
-        print(f"[{verdict}] seed={args.seed} iteration={i}: {small!r}\n    {difference}")
-    print(
-        f"{args.iterations} inputs, {len(failures)} mismatches, {len(distinct)} distinct, "
-        f"{bugs} not attributable to html5lib"
-    )
-    raise SystemExit(1 if bugs else 0)
-
-
-if __name__ == "__main__":
-    main()

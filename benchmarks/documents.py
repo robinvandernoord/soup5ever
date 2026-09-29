@@ -194,7 +194,7 @@ def foreign(scale: int = 1, seed: int = 4) -> str:
     return "".join(parts)
 
 
-#: name -> (description, zero-argument factory)
+# name -> (description, zero-argument factory)
 BENCHMARKS = {
     "small": ("small normal page", lambda: small()),
     "large": ("large normal page", lambda: normal(scale=40)),
@@ -204,7 +204,7 @@ BENCHMARKS = {
     "foreign": ("SVG/MathML-heavy", lambda: foreign(scale=4)),
 }
 
-#: Smaller variants of every kind, for the differential tests.
+# Smaller variants of every kind, for the differential tests.
 TEST_DOCUMENTS = {
     "small": lambda: small(),
     "normal": lambda: normal(scale=2),

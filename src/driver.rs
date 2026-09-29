@@ -19,12 +19,12 @@
 //!   while the encoding is still tentative, parsing stops and the caller
 //!   re-decodes and re-parses the bytes, as the HTML spec (and html5lib) do.
 
+use html5ever::TokenizerResult;
 use html5ever::buffer_queue::BufferQueue;
 use html5ever::interface::TreeSink;
 use html5ever::tendril::StrTendril;
 use html5ever::tokenizer::{Token, TokenSink, TokenSinkResult, Tokenizer, TokenizerOpts};
 use html5ever::tree_builder::{TreeBuilder, TreeBuilderOpts};
-use html5ever::TokenizerResult;
 
 use encoding_rs::Encoding;
 
@@ -249,8 +249,8 @@ pub fn parse_str(text: &str, track_positions: bool) -> Arena {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::sink::{NodeData, DOCUMENT};
+    use super::{Arena, parse_bytes, parse_str};
+    use crate::sink::{DOCUMENT, NodeData};
 
     /// A compact rendering of the arena: `name(children)`, `"text"`, etc.
     fn render(arena: &Arena, id: u32, out: &mut String) {
