@@ -1,0 +1,110 @@
+[build-system]
+requires = ["maturin>=1.9,<2"]
+build-backend = "maturin"
+
+[project]
+name = "soup5ever"
+description = "A BeautifulSoup tree builder backed by Rust's html5ever HTML5 parser"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+dependencies = ["beautifulsoup4>=4.13"]
+dynamic = ["version"]
+keywords = ["html", "html5", "parser", "beautifulsoup", "bs4", "html5ever"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Rust",
+    "Topic :: Text Processing :: Markup :: HTML",
+]
+
+[project.optional-dependencies]
+dev = [
+    "maturin>=1.9,<2",
+    "edwh",  # `edwh fmt`, `edwh lint` (brings ruff)
+    "pytest>=8",
+    "html5lib>=1.1",  # the reference implementation for the differential tests
+    "hypothesis>=6",
+    "tabulate",  # benchmarks/run.py
+]
+
+[project.urls]
+Source = "https://github.com/robinvandernoord/soup5ever"
+
+[tool.maturin]
+python-source = "python"
+module-name = "soup5ever._soup5ever"
+features = []
+strip = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-exclude = ["tests/vendor"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+# Line length is the formatter's job; long HTML literals in test data stay.
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["soup5ever", "benchmarks", "documents"]
+
+[tool.vommit]
+allow_breaking_bang = true
+allow_breaking_footer = true
+prerelease_token = "beta"
+confirm = true
+ignore = []
+
+[tool.vommit.git]
+enabled = true
+origin = "origin"
+branch = "master"
+on_wrong_branch = "error"
+tag_format = "v{version}"
+commit_format = "{version}"
+
+[tool.vommit.changelog]
+enabled = true
+file = "CHANGELOG.md"
+include_prereleases = false
+placeholder = "<!-- next-version-placeholder -->"
+placeholder_regex = "^<!\\-\\-[ \\t]+next\\-version\\-placeholder[ \\t]+\\-\\->$"
+entry_title_format = "## v{version} ({date:%Y-%m-%d})"
+
+[tool.vommit.changelog.levels]
+break = "Breaking Change{s}"
+feat = "Feature{s}"
+fix = "Fix{es}"
+perf = "Performance"
+docs = "Documentation"
+
+[tool.vommit.pypi]
+enabled = false
+
+[tool.vommit.commands]
+clean = "cargo clean"
+build = "maturin build"
+publish = "uv publish"
+post_publish = ""
+
+[tool.vommit.version_bump_map]
+break = "major"
+feat = "minor"
+fix = "patch"
+perf = "patch"
