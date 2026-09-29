@@ -92,9 +92,11 @@ Re-run `uv pip install -e .[dev]` after changing Rust code.
 
 ```
 edwh fmt && edwh lint                   # Python (ruff)
-cargo fmt && cargo clippy --all-targets -- -D warnings
-pytest tests/test_fuzz.py --fuzz 20000  # differential fuzzing, needs Chromium
+cargo fmt && cargo clippy               # Rust (lint levels in Cargo.toml)
 ```
+
+`pytest` includes a 3000-input differential fuzz run; `pytest --fuzz 20000 --fuzz-seed 7`
+runs a bigger one.
 
 ## License
 

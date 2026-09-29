@@ -53,14 +53,18 @@ def test_adapter_fix_explains_bs4_adapter_differences():
         assert (difference is None) == (kind == "bs4-adapter"), case
 
 
-@pytest.mark.parametrize("case", sorted(CASES))
+# A leading U+FEFF is content in a str but a byte order mark in bytes.
+BYTES_CASES = sorted(k for k, v in CASES.items() if not v.startswith("\ufeff"))
+# Cases where both builders produce the same tree.
+SAME_TREE_CASES = sorted(k for k in CASES if k not in KNOWN_DIFFERENCES)
+
+
+@pytest.mark.parametrize("case", BYTES_CASES)
 def test_corpus_case_as_utf8_bytes(case):
     # Same tree from bytes as from str (for documents that are valid UTF-8,
     # soup5ever detects UTF-8; html5lib would guess windows-1252 without
     # chardet, so the comparison here is soup5ever-with-itself).
     markup = CASES[case]
-    if markup.startswith("\ufeff"):
-        pytest.skip("a leading U+FEFF is a byte order mark in bytes, content in a str")
     from_str = parse(markup, "html5ever")
     from_bytes = parse(markup.encode("utf-8"), "html5ever", from_encoding="utf-8")
     assert canon.canonical(from_bytes) == canon.canonical(from_str)
@@ -98,12 +102,11 @@ def test_soup_linkage_matches_html5lib():
         assert canon.linkage_problems(ours) == []
 
 
-@pytest.mark.parametrize("case", sorted(CASES))
+@pytest.mark.parametrize("case", SAME_TREE_CASES)
 def test_navigation_matches_html5lib(case):
     """next_element/previous_element chains, compared node by node."""
     difference, ours, theirs = compare(CASES[case])
-    if difference:
-        pytest.skip("trees differ")
+    assert difference is None
     assert canon.linkage_problems(theirs) == []
 
     def chain(soup):

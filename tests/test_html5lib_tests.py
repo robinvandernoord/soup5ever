@@ -58,26 +58,32 @@ def ids(case):
     return case.id
 
 
-@pytest.mark.parametrize("case", CASES, ids=ids)
+PASSING = [case for case in CASES if case.id not in SPEC_FAILURES]
+
+
+@pytest.mark.parametrize("case", PASSING, ids=ids)
 def test_spec(case):
     ours = parse(case.data, "html5ever")
     assert canon.linkage_problems(ours) == []
-    actual = canon.to_test_format(ours)
-    if case.id in SPEC_FAILURES:
-        assert actual != case.document, f"{case.id} now passes; remove it from SPEC_FAILURES"
-        pytest.xfail(SPEC_FAILURES[case.id])
-    assert actual == case.document
+    assert canon.to_test_format(ours) == case.document
 
 
-@pytest.mark.parametrize("case", CASES, ids=ids)
+@pytest.mark.parametrize("case", PASSING, ids=ids)
 def test_differential(case):
     ours = parse(case.data, "html5ever")
     theirs = parse(case.data, "html5lib")
     if canon.canonical(ours) == canon.canonical(theirs):
         return
-    if case.id in SPEC_FAILURES:
-        pytest.xfail(SPEC_FAILURES[case.id])
     # The difference is acceptable only because html5lib is the one that's
     # wrong.
     assert canon.to_test_format(ours) == case.document
     assert canon.to_test_format(theirs) != case.document
+
+
+def test_known_spec_failures():
+    """The listed failures still fail; remove any that start passing."""
+    failures = {case.id: case for case in CASES if case.id in SPEC_FAILURES}
+    assert failures.keys() == SPEC_FAILURES.keys()
+    for case in failures.values():
+        ours = parse(case.data, "html5ever")
+        assert canon.to_test_format(ours) != case.document, f"{case.id} now passes"

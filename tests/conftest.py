@@ -13,8 +13,8 @@ def pytest_addoption(parser):
     group.addoption(
         "--fuzz",
         type=int,
-        default=0,
+        default=3000,
         metavar="N",
-        help="run differential fuzzing with N generated inputs (tests/test_fuzz.py)",
+        help="generated inputs for tests/test_fuzz.py (default 3000)",
     )
-    group.addoption("--fuzz-seed", type=int, default=1, help="seed for --fuzz")
+    group.addoption("--fuzz-seed", type=int, default=1, help="seed for tests/test_fuzz.py")

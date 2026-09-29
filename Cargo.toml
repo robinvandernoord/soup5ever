@@ -27,3 +27,9 @@ codegen-units = 1   # Reduce number of codegen units to increase optimizations
 strip = true        # Strip symbols from the binary
 # No `panic = "abort"`: in an extension module PyO3 turns a Rust panic into a
 # Python exception, while abort would kill the user's interpreter.
+
+[lints.rust]
+warnings = "deny"
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }

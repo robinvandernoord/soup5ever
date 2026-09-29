@@ -1,6 +1,6 @@
 """Differential fuzzing helpers: html5ever vs html5lib on generated HTML.
 
-Run with `pytest --fuzz 20000 [--fuzz-seed 7]` (tests/test_fuzz.py). Every
+Used by tests/test_fuzz.py (part of the normal `pytest` run). Every
 input is derived from `(seed, iteration)`, so a failure is reproducible
 from the two numbers reported with it. Mismatches are minimized
 (tests/minimize.py), de-duplicated and saved under tests/fuzz_failures/.
@@ -11,7 +11,7 @@ behind the HTML standard in many places, so the generator avoids the areas
 listed in `AVOIDED`, and every remaining mismatch is triaged with Chromium's
 parser (tests/oracle) when Node.js/Playwright/Chromium are available: only
 mismatches where Chromium does *not* side with soup5ever count as soup5ever
-bugs. The fuzz test is skipped when Chromium isn't available.
+bugs.
 """
 
 from __future__ import annotations
@@ -366,10 +366,15 @@ def run(seed: int, iterations: int, save: bool = True) -> list[tuple[int, str, s
         small = minimize(markup, lambda m: check(m) is not None and not _avoided(m))
         failures.append((i, small, check(small)))
         if save:
-            FAILURES.mkdir(exist_ok=True)
-            name = hashlib.sha1(small.encode("utf-8", "surrogatepass")).hexdigest()[:12]
-            (FAILURES / f"{name}.html").write_text(small, encoding="utf-8")
+            save_failure(small)
     return failures
+
+
+def save_failure(markup: str) -> None:
+    """Keep a minimized mismatch under tests/fuzz_failures/ for triage."""
+    FAILURES.mkdir(exist_ok=True)
+    name = hashlib.sha1(markup.encode("utf-8", "surrogatepass")).hexdigest()[:12]
+    (FAILURES / f"{name}.html").write_text(markup, encoding="utf-8")
 
 
 def triage(inputs: list[str]) -> list[str]:

@@ -57,8 +57,10 @@ fn build_tree<'py>(
                 let utf16 = s.call_method1("encode", ("utf-16-le", "surrogatepass"))?;
                 let utf16 = utf16.cast::<PyBytes>()?.as_bytes();
                 let units: Vec<u16> = utf16
-                    .chunks_exact(2)
-                    .map(|c| u16::from_le_bytes([c[0], c[1]]))
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
+                    .map(|c| u16::from_le_bytes(*c))
                     .collect();
                 let text = String::from_utf16_lossy(&units);
                 py.detach(|| SameThread(driver::parse_str(&text, store_line_numbers)))
